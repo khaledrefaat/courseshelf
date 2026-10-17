@@ -7,7 +7,7 @@
 		"core:default",
 		"opener:default",
 		"dialog:allow-open",
-		"fs:default",
+		"fs:deny-default",
 		"sql:allow-load",
 		"sql:allow-select",
 		"sql:allow-execute"

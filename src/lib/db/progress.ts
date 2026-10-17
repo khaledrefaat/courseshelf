@@ -61,7 +61,7 @@ export async function getCourseSummary(
 		`SELECT COUNT(*) AS total_count,
 		        COALESCE(SUM(COALESCE(progress.completed, 0)), 0) AS completed_count
 		 FROM lessons LEFT JOIN progress ON progress.lesson_id = lessons.id
-		 WHERE lessons.course_id = $1`,
+		 WHERE lessons.course_id = $1 AND lessons.missing_at IS NULL`,
 		[courseId],
 	);
 	if (!row) throw new Error("Course summary query returned no row");

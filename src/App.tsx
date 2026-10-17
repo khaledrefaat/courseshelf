@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CourseScanTest } from "@/features/course/CourseScanTest";
 import "@/App.css";
 
 const positionKey = (path: string) => `courseshelf:video-spike:${path}`;
@@ -76,6 +77,7 @@ function App() {
 	return (
 		<main>
 			<h1>Video playback spike</h1>
+			{import.meta.env.DEV && <CourseScanTest />}
 			<Button onClick={chooseVideo} disabled={choosing}>
 				Choose video
 			</Button>

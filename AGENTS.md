@@ -81,3 +81,8 @@ and the folder-tree sidebar.
 - Ask before changing the playback server, its tokens, or `tauri.conf.json` CSP/capabilities.
 - CSP is currently null. Set a real CSP (with `media-src` for the localhost server) before the
   real app ships.
+
+
+- Rescanning never deletes progress or notes. Lessons whose files disappeared are marked
+  `missing_at`, not deleted. Abort the sync (write nothing) if the root is unreadable or the
+  scan finds zero videos while lessons exist.
