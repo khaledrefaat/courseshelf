@@ -13,6 +13,7 @@ export interface CourseStructure {
 	sections: Section[];
 	lessons: ScannedLesson[];
 	ignored_count: number;
+	ignored_by_extension: Record<string, number>;
 }
 
 export function comparePaths(a: string, b: string): number {
@@ -32,6 +33,7 @@ export function buildCourseStructure(
 ): CourseStructure {
 	const grouped = new Map<string, string[]>();
 	let ignored_count = 0;
+	const ignored = new Map<string, number>();
 	for (const path of paths) {
 		const segments = path.split("/");
 		if (
@@ -39,6 +41,15 @@ export function buildCourseStructure(
 			!/\.(mp4|m4v|webm)$/i.test(path)
 		) {
 			ignored_count += 1;
+			const filename = segments[segments.length - 1];
+			if (
+				!segments.some((segment) => !segment || segment.startsWith(".")) &&
+				!/^(thumbs\.db|desktop\.ini)$/i.test(filename)
+			) {
+				const extension = filename.match(/\.([^.]+)$/)?.[1].toLowerCase();
+				const key = extension ? `.${extension}` : "(no extension)";
+				ignored.set(key, (ignored.get(key) ?? 0) + 1);
+			}
 			continue;
 		}
 		const section = segments.slice(0, -1).join("/");
@@ -66,5 +77,8 @@ export function buildCourseStructure(
 		sections,
 		lessons: sections.flatMap((section) => section.lessons),
 		ignored_count,
+		ignored_by_extension: Object.fromEntries(
+			[...ignored].sort(([a], [b]) => a.localeCompare(b)),
+		),
 	};
 }

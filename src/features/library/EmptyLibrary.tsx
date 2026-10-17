@@ -53,7 +53,7 @@ function BookshelfIllustration() {
 	);
 }
 
-export function EmptyLibrary() {
+export function EmptyLibrary({ onAddCourse }: { onAddCourse?: () => void }) {
 	return (
 		<section className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
 			<BookshelfIllustration />
@@ -66,8 +66,7 @@ export function EmptyLibrary() {
 			</p>
 			<Button
 				className="mt-7 h-14 gap-2 rounded-lg px-9 text-base"
-				title="Adding courses is coming next"
-				onClick={() => {}}
+				onClick={onAddCourse}
 			>
 				<Plus />
 				Add your first course

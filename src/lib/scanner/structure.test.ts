@@ -95,6 +95,7 @@ describe("buildCourseStructure", () => {
 			sections: [],
 			lessons: [],
 			ignored_count: 0,
+			ignored_by_extension: {},
 		});
 	});
 });

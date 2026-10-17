@@ -33,7 +33,13 @@ const sorts: CourseSort[] = [
 	"Recently added",
 ];
 
-export function LibraryPage({ search }: { search: string }) {
+export function LibraryPage({
+	search,
+	onAddCourse,
+}: {
+	search: string;
+	onAddCourse?: () => void;
+}) {
 	const { courses, registrations, error, registrationError } = useLibrary();
 	const [status, setStatus] = useState<StatusFilter>("All");
 	const [sort, setSort] = useState<CourseSort>("Last watched");
@@ -52,7 +58,7 @@ export function LibraryPage({ search }: { search: string }) {
 	if (courses.length === 0)
 		return (
 			<main className="flex flex-1 flex-col">
-				<EmptyLibrary />
+				<EmptyLibrary onAddCourse={onAddCourse} />
 			</main>
 		);
 	const continuing = continueCourse(courses);

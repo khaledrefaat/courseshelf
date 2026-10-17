@@ -1,8 +1,16 @@
 import { Library, Plus, Search } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-import { HashRouter, Link, Route, Routes, useParams } from "react-router";
+import {
+	HashRouter,
+	Link,
+	Route,
+	Routes,
+	useNavigate,
+	useParams,
+} from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AddCourseDialog } from "@/features/library/add-course/AddCourseDialog";
 import { LibraryPage } from "@/features/library/LibraryPage";
 
 const VideoSpike = import.meta.env.DEV
@@ -29,6 +37,10 @@ function CoursePlaceholder() {
 
 function Shell() {
 	const [search, setSearch] = useState("");
+	const [adding, setAdding] = useState(false);
+	const [revision, setRevision] = useState(0);
+	const [notice, setNotice] = useState<string | null>(null);
+	const navigate = useNavigate();
 	return (
 		<div className="flex min-h-dvh flex-col">
 			<header className="border-b bg-card">
@@ -54,14 +66,33 @@ function Shell() {
 					</div>
 					<Button
 						className="h-11 gap-2 rounded-lg px-5"
-						title="Adding courses is coming next"
-						onClick={() => {}}
+						onClick={() => setAdding(true)}
 					>
 						<Plus />
 						Add course
 					</Button>
 				</div>
 			</header>
+			{notice && (
+				<p
+					role="status"
+					className="mx-auto w-full max-w-360 px-5 pt-5 text-sm text-muted-foreground sm:px-10"
+				>
+					{notice}
+				</p>
+			)}
+			{adding && (
+				<AddCourseDialog
+					onCancel={() => setAdding(false)}
+					onAdded={(warning) => {
+						setAdding(false);
+						setNotice(warning);
+						setSearch("");
+						setRevision((value) => value + 1);
+						navigate("/");
+					}}
+				/>
+			)}
 			<Suspense
 				fallback={
 					<p className="p-10" role="status">
@@ -70,7 +101,16 @@ function Shell() {
 				}
 			>
 				<Routes>
-					<Route path="/" element={<LibraryPage search={search} />} />
+					<Route
+						path="/"
+						element={
+							<LibraryPage
+								key={revision}
+								search={search}
+								onAddCourse={() => setAdding(true)}
+							/>
+						}
+					/>
 					<Route path="/course/:courseId" element={<CoursePlaceholder />} />
 					<Route
 						path="/course/:courseId/lesson/:lessonId"

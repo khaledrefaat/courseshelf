@@ -15,6 +15,14 @@ export interface NewCourse {
 }
 
 export async function create(input: NewCourse): Promise<Course> {
+	const id = await insert(input);
+	const course = await getById(id);
+	if (!course) throw new Error("Created course could not be read back");
+	return course;
+}
+
+// Import workflows need the ID before any follow-up read can fail, for rollback.
+export async function insert(input: NewCourse): Promise<number> {
 	const db = await getDb();
 	const result = await db.execute(
 		"INSERT INTO courses (title, root_path, cover_path) VALUES ($1, $2, $3)",
@@ -23,9 +31,7 @@ export async function create(input: NewCourse): Promise<Course> {
 	if (result.lastInsertId === undefined) {
 		throw new Error("SQLite did not return the new course ID");
 	}
-	const course = await getById(result.lastInsertId);
-	if (!course) throw new Error("Created course could not be read back");
-	return course;
+	return result.lastInsertId;
 }
 
 export async function list(): Promise<Course[]> {

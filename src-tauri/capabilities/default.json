@@ -12,6 +12,19 @@
 			"identifier": "fs:allow-read-file",
 			"allow": [{ "path": "$APPDATA/covers/**" }]
 		},
+		"fs:allow-stat",
+		{
+			"identifier": "fs:allow-mkdir",
+			"allow": [{ "path": "$APPDATA/covers" }]
+		},
+		{
+			"identifier": "fs:allow-write-file",
+			"allow": [{ "path": "$APPDATA/covers/**" }]
+		},
+		{
+			"identifier": "fs:allow-remove",
+			"allow": [{ "path": "$APPDATA/covers/**" }]
+		},
 		"sql:allow-load",
 		"sql:allow-select",
 		"sql:allow-execute"
