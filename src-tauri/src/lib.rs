@@ -33,7 +33,19 @@ pub fn run() {
             app.manage(video_stream::VideoStream::new()?);
             Ok(())
         })
-        .plugin(tauri_plugin_sql::Builder::new().build())
+        .plugin(
+            tauri_plugin_sql::Builder::new()
+                .add_migrations(
+                    "sqlite:courseshelf.db",
+                    vec![tauri_plugin_sql::Migration {
+                        version: 1,
+                        description: "initial_schema",
+                        sql: include_str!("../../src/lib/db/migrations/0001_initial.sql"),
+                        kind: tauri_plugin_sql::MigrationKind::Up,
+                    }],
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
