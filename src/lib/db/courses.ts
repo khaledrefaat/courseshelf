@@ -72,8 +72,10 @@ export async function updateCover(
 	coverPath: string | null,
 ): Promise<void> {
 	const db = await getDb();
-	await db.execute("UPDATE courses SET cover_path = $1 WHERE id = $2", [
-		coverPath,
-		id,
-	]);
+	const result = await db.execute(
+		"UPDATE courses SET cover_path = $1 WHERE id = $2",
+		[coverPath, id],
+	);
+	if (result.rowsAffected === 0)
+		throw new Error("Course not found; the cover was not saved.");
 }

@@ -45,6 +45,19 @@ export async function saveCover(
 	courseId: number,
 	cover: PickedCover,
 ): Promise<string | null> {
+	try {
+		await writeCourseCover(courseId, cover);
+		return null;
+	} catch (error) {
+		return `Course added, but ${errorMessage(error).replace(/^The /, "the ")}`;
+	}
+}
+
+// Also used by editing: callers need the new path and a failure, not an import warning.
+export async function writeCourseCover(
+	courseId: number,
+	cover: PickedCover,
+): Promise<string> {
 	let createdPath: string | undefined;
 	try {
 		const folder = await join(await appDataDir(), "covers");
@@ -64,9 +77,9 @@ export async function saveCover(
 			throw error;
 		}
 		await updateCover(courseId, path);
-		return null;
+		return path;
 	} catch (error) {
-		let warning = `Course added, but the cover wasn't saved: ${errorMessage(error)}`;
+		let warning = `The cover wasn't saved: ${errorMessage(error)}`;
 		if (createdPath) {
 			try {
 				await remove(createdPath);
@@ -74,6 +87,6 @@ export async function saveCover(
 				warning += ` Cover cleanup also failed (${createdPath}): ${errorMessage(cleanup)}`;
 			}
 		}
-		return warning;
+		throw new Error(warning);
 	}
 }

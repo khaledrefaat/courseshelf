@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db/db";
+import { waitForProgressWrites } from "@/lib/db/progressWrites";
 
 export interface CourseSummary {
 	id: number;
@@ -13,6 +14,8 @@ export interface CourseSummary {
 }
 
 export async function listCourseSummaries(): Promise<CourseSummary[]> {
+	// Library remounts on return; also wait for writes started before navigation.
+	await waitForProgressWrites();
 	const db = await getDb();
 	return db.select<CourseSummary[]>(`
 		WITH active AS (

@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db/db";
+import { trackProgressWrite } from "@/lib/db/progressWrites";
 
 export interface Progress {
 	lesson_id: number;
@@ -23,16 +24,30 @@ export async function get(lessonId: number): Promise<Progress | null> {
 	return row ? { ...row, completed: row.completed === 1 } : null;
 }
 
-export async function setCompleted(
+export function setCompleted(
 	lessonId: number,
 	completed: boolean,
 ): Promise<void> {
-	const db = await getDb();
-	await db.execute(
-		`INSERT INTO progress (lesson_id, completed) VALUES ($1, $2)
+	return trackProgressWrite(async () => {
+		const db = await getDb();
+		await db.execute(
+			`INSERT INTO progress (lesson_id, completed) VALUES ($1, $2)
 		 ON CONFLICT (lesson_id) DO UPDATE SET completed = excluded.completed`,
-		[lessonId, completed ? 1 : 0],
-	);
+			[lessonId, completed ? 1 : 0],
+		);
+	});
+}
+
+export function touchLastWatched(lessonId: number): Promise<void> {
+	return trackProgressWrite(async () => {
+		const db = await getDb();
+		await db.execute(
+			`INSERT INTO progress (lesson_id, completed, last_position_seconds, last_watched_at)
+			 VALUES ($1, 0, 0, CURRENT_TIMESTAMP)
+			 ON CONFLICT (lesson_id) DO UPDATE SET last_watched_at = CURRENT_TIMESTAMP`,
+			[lessonId],
+		);
+	});
 }
 
 export async function savePosition(

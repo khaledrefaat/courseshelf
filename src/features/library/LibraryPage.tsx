@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContinueCard } from "@/features/library/ContinueCard";
 import { CourseCard } from "@/features/library/CourseCard";
 import { EmptyLibrary } from "@/features/library/EmptyLibrary";
+import { DeleteCourseDialog } from "@/features/library/edit-cover/DeleteCourseDialog";
+import { EditCoverDialog } from "@/features/library/edit-cover/EditCoverDialog";
 import {
 	type CourseSort,
 	continueCourse,
@@ -19,6 +21,7 @@ import {
 	sortCourses,
 } from "@/features/library/model";
 import { useLibrary } from "@/features/library/useLibrary";
+import type { CourseSummary } from "@/lib/db/courseSummaries";
 
 const tabs: { value: StatusFilter; label: string }[] = [
 	{ value: "All", label: "All" },
@@ -43,6 +46,13 @@ export function LibraryPage({
 	const { courses, registrations, error, registrationError } = useLibrary();
 	const [status, setStatus] = useState<StatusFilter>("All");
 	const [sort, setSort] = useState<CourseSort>("Last watched");
+	const [editing, setEditing] = useState<CourseSummary | null>(null);
+	const [deleting, setDeleting] = useState<CourseSummary | null>(null);
+	const [coverChanges, setCoverChanges] = useState(
+		new Map<number, string | null>(),
+	);
+	const [deletedIds, setDeletedIds] = useState(new Set<number>());
+	const [notice, setNotice] = useState<string | null>(null);
 	if (error)
 		return (
 			<main className="p-10" role="alert">
@@ -55,14 +65,32 @@ export function LibraryPage({
 				Loading your library…
 			</main>
 		);
-	if (courses.length === 0)
+	const currentCourses = courses
+		.filter((course) => !deletedIds.has(course.id))
+		.map((course) =>
+			coverChanges.has(course.id)
+				? { ...course, cover_path: coverChanges.get(course.id) ?? null }
+				: course,
+		);
+	if (currentCourses.length === 0)
 		return (
 			<main className="flex flex-1 flex-col">
+				{notice && (
+					<p
+						role="status"
+						className="mx-auto max-w-360 px-10 pt-5 text-sm text-muted-foreground"
+					>
+						{notice}
+					</p>
+				)}
 				<EmptyLibrary onAddCourse={onAddCourse} />
 			</main>
 		);
-	const continuing = continueCourse(courses);
-	const visible = sortCourses(filterCourses(courses, status, search), sort);
+	const continuing = continueCourse(currentCourses);
+	const visible = sortCourses(
+		filterCourses(currentCourses, status, search),
+		sort,
+	);
 	const grid = visible.length ? (
 		<div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{visible.map((course) => (
@@ -70,6 +98,8 @@ export function LibraryPage({
 					key={course.id}
 					course={course}
 					registration={registrations.get(course.id)}
+					onEditCover={() => setEditing(course)}
+					onDelete={() => setDeleting(course)}
 				/>
 			))}
 		</div>
@@ -80,6 +110,40 @@ export function LibraryPage({
 	);
 	return (
 		<main className="mx-auto w-full max-w-360 px-5 py-10 sm:px-10">
+			{notice && (
+				<p role="status" className="mb-5 text-sm text-muted-foreground">
+					{notice}
+				</p>
+			)}
+			{editing && (
+				<EditCoverDialog
+					key={editing.id}
+					course={editing}
+					onCancel={() => setEditing(null)}
+					onSaved={(path, warning) => {
+						setCoverChanges((previous) =>
+							new Map(previous).set(editing.id, path),
+						);
+						setNotice(warning ?? "Cover updated.");
+						setEditing(null);
+					}}
+				/>
+			)}
+			{deleting && (
+				<DeleteCourseDialog
+					key={deleting.id}
+					course={deleting}
+					onCancel={() => setDeleting(null)}
+					onDeleted={(warning) => {
+						setDeletedIds((previous) => new Set([...previous, deleting.id]));
+						setNotice(
+							warning ??
+								"Course deleted from your library. Your videos were not deleted.",
+						);
+						setDeleting(null);
+					}}
+				/>
+			)}
 			{registrationError && (
 				<p className="mb-6 text-sm text-muted-foreground" role="alert">
 					{registrationError}
@@ -109,8 +173,8 @@ export function LibraryPage({
 							>
 								{tab.label} ·{" "}
 								{tab.value === "All"
-									? courses.length
-									: courses.filter(
+									? currentCourses.length
+									: currentCourses.filter(
 											(course) => courseStatus(course) === tab.value,
 										).length}
 							</TabsTrigger>
