@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db/db";
-import { trackProgressWrite } from "@/lib/db/progressWrites";
+import { queueProgressWrite } from "@/lib/db/progressWrites";
 
 export interface Progress {
 	lesson_id: number;
@@ -28,7 +28,7 @@ export function setCompleted(
 	lessonId: number,
 	completed: boolean,
 ): Promise<void> {
-	return trackProgressWrite(async () => {
+	return queueProgressWrite(lessonId, async () => {
 		const db = await getDb();
 		await db.execute(
 			`INSERT INTO progress (lesson_id, completed) VALUES ($1, $2)
@@ -39,7 +39,7 @@ export function setCompleted(
 }
 
 export function touchLastWatched(lessonId: number): Promise<void> {
-	return trackProgressWrite(async () => {
+	return queueProgressWrite(lessonId, async () => {
 		const db = await getDb();
 		await db.execute(
 			`INSERT INTO progress (lesson_id, completed, last_position_seconds, last_watched_at)
@@ -57,15 +57,17 @@ export async function savePosition(
 	if (!Number.isFinite(seconds) || seconds < 0) {
 		throw new Error("Playback position must be a finite, nonnegative number");
 	}
-	const db = await getDb();
-	await db.execute(
-		`INSERT INTO progress (lesson_id, last_position_seconds, last_watched_at)
+	return queueProgressWrite(lessonId, async () => {
+		const db = await getDb();
+		await db.execute(
+			`INSERT INTO progress (lesson_id, last_position_seconds, last_watched_at)
 		 VALUES ($1, $2, CURRENT_TIMESTAMP)
 		 ON CONFLICT (lesson_id) DO UPDATE SET
 		     last_position_seconds = excluded.last_position_seconds,
 		     last_watched_at = CURRENT_TIMESTAMP`,
-		[lessonId, seconds],
-	);
+			[lessonId, seconds],
+		);
+	});
 }
 
 export async function getCourseSummary(

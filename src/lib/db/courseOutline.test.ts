@@ -4,7 +4,12 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getCourseOutline } from "@/lib/db/courseOutline";
 import { listCourseSummaries } from "@/lib/db/courseSummaries";
-import { get, setCompleted, touchLastWatched } from "@/lib/db/progress";
+import {
+	get,
+	savePosition,
+	setCompleted,
+	touchLastWatched,
+} from "@/lib/db/progress";
 import { waitForProgressWrites } from "@/lib/db/progressWrites";
 
 let sqlite: DatabaseSync;
@@ -106,4 +111,26 @@ it("failed writes don't block Library reads or change persisted counts", async (
 		(await listCourseSummaries()).find((row) => row.id === 1)
 			?.completed_lessons,
 	).toBe(1);
+});
+
+it("queued position writes preserve completion, update SQL timestamps and finish before Library queries", async () => {
+	let release!: () => void;
+	pause = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const first = savePosition(1, 50);
+	const newer = savePosition(1, 60);
+	const library = listCourseSummaries();
+	await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+	expect(select).not.toHaveBeenCalled();
+	release();
+	await Promise.all([first, newer, library]);
+	expect(await get(1)).toMatchObject({
+		completed: true,
+		last_position_seconds: 60,
+	});
+	expect((await get(1))?.last_watched_at).not.toBe("2000-01-01 00:00:00");
+	expect(
+		execute.mock.calls.every(([query]) => query.includes("CURRENT_TIMESTAMP")),
+	).toBe(true);
 });

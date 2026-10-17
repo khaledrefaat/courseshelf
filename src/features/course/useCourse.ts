@@ -11,7 +11,7 @@ export function useCourse(courseId: number) {
 	const [error, setError] = useState<string | null>(null);
 	const [progressError, setProgressError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
-	const busy = useRef(false);
+	const busy = useRef(new Set<number>());
 	const mounted = useRef(true);
 	useEffect(() => {
 		let active = true;
@@ -37,10 +37,11 @@ export function useCourse(courseId: number) {
 			mounted.current = false;
 		};
 	}, [courseId]);
-	async function toggleCompletion(lessonId: number) {
+	async function changeCompletion(lessonId: number, desired?: boolean) {
 		const lesson = data?.outline?.lessons.find((row) => row.id === lessonId);
-		if (!lesson || busy.current) return;
-		busy.current = true;
+		if (!lesson || busy.current.has(lessonId)) return;
+		if (desired !== undefined && desired === lesson.completed) return;
+		busy.current.add(lessonId);
 		setSaving(true);
 		setProgressError(null);
 		try {
@@ -66,9 +67,16 @@ export function useCourse(courseId: number) {
 					"Could not update completion. Your change was reverted. Please try again.",
 				);
 		} finally {
-			busy.current = false;
-			if (mounted.current) setSaving(false);
+			busy.current.delete(lessonId);
+			if (mounted.current) setSaving(busy.current.size > 0);
 		}
 	}
-	return { data, error, progressError, saving, toggleCompletion };
+	return {
+		data,
+		error,
+		progressError,
+		saving,
+		toggleCompletion: (id: number) => changeCompletion(id),
+		completeLesson: (id: number) => changeCompletion(id, true),
+	};
 }

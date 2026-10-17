@@ -1,18 +1,30 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { registerProgressFlush } from "@/features/course/closeProgress";
+import { trackPlayback } from "@/features/course/playbackTracking";
 import { firstPlay, playQuietly } from "@/features/course/progressActions";
+import { positionLabel } from "@/features/course/trackingRules";
 import type { OutlineLesson } from "@/lib/db/courseOutline";
+import { get, savePosition } from "@/lib/db/progress";
+import { waitForProgressWrites } from "@/lib/db/progressWrites";
 import { getLessonUrl, playbackErrorMessage } from "@/lib/playback";
 
 export function LessonPlayer({
 	courseId,
 	lesson,
 	autoplay,
+	onComplete,
 }: {
 	courseId: number;
 	lesson: OutlineLesson;
 	autoplay: boolean;
+	onComplete: () => Promise<void>;
 }) {
 	const [source, setSource] = useState<string | null>(null);
+	const [savedPosition, setSavedPosition] = useState(0);
+	const [resumed, setResumed] = useState<number | null>(null);
+	const videoRef = useRef<HTMLVideoElement>(null);
+	const tracking = useRef<ReturnType<typeof trackPlayback> | null>(null);
+	const completeRef = useRef(onComplete);
 	const [error, setError] = useState<string | null>(null);
 	const [watchError, setWatchError] = useState<string | null>(null);
 	const autoplayOnce = useRef(autoplay);
@@ -21,9 +33,15 @@ export function LessonPlayer({
 	useEffect(() => {
 		let active = true;
 		mounted.current = true;
-		void getLessonUrl(courseId, lesson.relative_path)
-			.then((url) => {
-				if (active) setSource(url);
+		void Promise.all([
+			getLessonUrl(courseId, lesson.relative_path),
+			waitForProgressWrites().then(() => get(lesson.id)),
+		])
+			.then(([url, progress]) => {
+				if (active) {
+					setSavedPosition(progress?.last_position_seconds ?? 0);
+					setSource(url);
+				}
 			})
 			.catch((cause: unknown) => {
 				if (active) setError(playbackErrorMessage(cause));
@@ -32,25 +50,57 @@ export function LessonPlayer({
 			active = false;
 			mounted.current = false;
 		};
-	}, [courseId, lesson.relative_path]);
+	}, [courseId, lesson.relative_path, lesson.id]);
+	useLayoutEffect(() => {
+		completeRef.current = onComplete;
+		tracking.current?.updateCompleted(lesson.completed);
+	}, [onComplete, lesson.completed]);
+	// Layout cleanup captures the still-mounted video, before route removal resets it.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Completion is updated independently above; only a new source starts a visit.
+	useLayoutEffect(() => {
+		const video = videoRef.current;
+		if (!source || !video) return;
+		const controller = trackPlayback(video, {
+			savedPosition,
+			completed: lesson.completed,
+			save: (seconds) => savePosition(lesson.id, seconds),
+			complete: () => completeRef.current(),
+			onResume: setResumed,
+			onReady: () => {
+				if (autoplayOnce.current) {
+					autoplayOnce.current = false;
+					void playQuietly(video);
+				}
+			},
+			onError: () =>
+				setWatchError("Could not save playback progress. Please try again."),
+		});
+		tracking.current = controller;
+		const unregister = registerProgressFlush(controller.flush);
+		const hidden = () => {
+			if (document.hidden) controller.flush();
+		};
+		document.addEventListener("visibilitychange", hidden);
+		return () => {
+			controller.dispose();
+			tracking.current = null;
+			unregister();
+			document.removeEventListener("visibilitychange", hidden);
+		};
+	}, [source, savedPosition, lesson.id]);
 	return (
 		<div>
 			{source ? (
 				<>
 					{/* biome-ignore lint/a11y/useMediaCaption: Local lesson player uses native controls; captions are out of scope. */}
 					<video
+						ref={videoRef}
 						key={lesson.id}
 						controls
 						preload="metadata"
 						src={source}
 						aria-label={lesson.title}
 						className="aspect-video w-full rounded-lg bg-primary"
-						onLoadedMetadata={(event) => {
-							if (autoplayOnce.current) {
-								autoplayOnce.current = false;
-								void playQuietly(event.currentTarget);
-							}
-						}}
 						onPlay={() => {
 							void recordPlay.current().catch(() => {
 								if (mounted.current)
@@ -65,6 +115,18 @@ export function LessonPlayer({
 							);
 						}}
 					/>
+					{resumed !== null && (
+						<p className="mt-2 text-sm text-muted-foreground">
+							Resumed from {positionLabel(resumed)}{" "}
+							<button
+								type="button"
+								className="ml-2 text-brand hover:underline"
+								onClick={() => tracking.current?.startOver()}
+							>
+								Start over
+							</button>
+						</p>
+					)}
 					{error && (
 						<p role="alert" className="mt-3 text-sm text-destructive">
 							{error}

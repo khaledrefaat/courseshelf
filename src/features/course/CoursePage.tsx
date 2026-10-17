@@ -29,12 +29,14 @@ function CourseContent({
 	progressError,
 	saving,
 	toggleCompletion,
+	completeLesson,
 }: {
 	outline: CourseOutline;
 	lesson: OutlineLesson;
 	progressError: string | null;
 	saving: boolean;
 	toggleCompletion: (id: number) => Promise<void>;
+	completeLesson: (id: number) => Promise<void>;
 }) {
 	const navigate = useNavigate();
 	const model = useMemo(
@@ -95,6 +97,7 @@ function CourseContent({
 						courseId={outline.course.id}
 						lesson={lesson}
 						autoplay={autoplay}
+						onComplete={() => completeLesson(lesson.id)}
 					/>
 					<div className="mt-6 flex flex-wrap items-start justify-between gap-5">
 						<div className="min-w-0 flex-1">
@@ -155,8 +158,14 @@ function LoadedCourse({
 	courseId: number;
 	rawLessonId: string | undefined;
 }) {
-	const { data, error, progressError, saving, toggleCompletion } =
-		useCourse(courseId);
+	const {
+		data,
+		error,
+		progressError,
+		saving,
+		toggleCompletion,
+		completeLesson,
+	} = useCourse(courseId);
 	if (error) return <CourseMessage message={error} />;
 	if (!data)
 		return (
@@ -190,6 +199,7 @@ function LoadedCourse({
 			progressError={progressError}
 			saving={saving}
 			toggleCompletion={toggleCompletion}
+			completeLesson={completeLesson}
 		/>
 	);
 }
