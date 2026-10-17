@@ -1,8 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CourseScanTest } from "@/features/course/CourseScanTest";
+import { readLastCourse } from "@/features/course/lastTestCourse";
+import { getById } from "@/lib/db/courses";
+import { listByCourse } from "@/lib/db/lessons";
+import { getLessonUrl, playbackErrorMessage } from "@/lib/playback";
 import "@/App.css";
 
 const positionKey = (path: string) => `courseshelf:video-spike:${path}`;
@@ -17,24 +19,43 @@ function App() {
 	const [error, setError] = useState<string | null>(null);
 	const [status, setStatus] = useState("");
 
-	async function chooseVideo() {
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!videoUrl || !video) return;
+		void video.play().catch((cause: unknown) => {
+			if (cause instanceof DOMException && cause.name === "AbortError") return;
+			setError(
+				video.error
+					? `Video failed to load (error code: ${video.error.code}).`
+					: playbackErrorMessage(cause),
+			);
+		});
+	}, [videoUrl]);
+
+	async function playFirstLesson() {
 		setChoosing(true);
 		try {
-			const selected = await open({
-				multiple: false,
-				directory: false,
-				filters: [{ name: "MP4 video", extensions: ["mp4"] }],
-			});
-			if (!selected) return;
-			const url = await invoke<string>("select_video", { path: selected });
+			const courseId = readLastCourse();
+			if (courseId === null)
+				throw new Error("Choose and sync a course folder first.");
+			const course = await getById(courseId);
+			if (!course) throw new Error("The last course no longer exists.");
+			const [lesson] = await listByCourse(courseId);
+			if (!lesson)
+				throw new Error("The course has no available lessons. Sync it first.");
+			const url = await getLessonUrl(courseId, lesson.relative_path);
+			if (url === videoUrl) {
+				await videoRef.current?.play();
+				return;
+			}
 			setCurrentTime(0);
 			setDuration(null);
 			setError(null);
 			setStatus("");
-			setPath(selected);
+			setPath(`${course.root_path.replace(/\/$/, "")}/${lesson.relative_path}`);
 			setVideoUrl(url);
 		} catch (cause) {
-			setError(`Could not choose/load video: ${String(cause)}`);
+			setError(playbackErrorMessage(cause));
 		} finally {
 			setChoosing(false);
 		}
@@ -70,7 +91,7 @@ function App() {
 			await video.play();
 			setStatus(`Resumed from ${Math.min(position, duration).toFixed(1)} s`);
 		} catch (cause) {
-			setError(`Could not resume: ${String(cause)}`);
+			setError(`Could not resume: ${playbackErrorMessage(cause)}`);
 		}
 	}
 
@@ -78,8 +99,8 @@ function App() {
 		<main>
 			<h1>Video playback spike</h1>
 			{import.meta.env.DEV && <CourseScanTest />}
-			<Button onClick={chooseVideo} disabled={choosing}>
-				Choose video
+			<Button onClick={playFirstLesson} disabled={choosing}>
+				Play first lesson of last course
 			</Button>
 			{/* biome-ignore lint/a11y/useMediaCaption: Local MP4 spike; no caption file is provided. */}
 			<video

@@ -4,25 +4,6 @@ mod video_stream;
 use tauri::Manager;
 
 #[tauri::command]
-fn select_video(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, video_stream::VideoStream>,
-    path: String,
-) -> Result<String, String> {
-    let path = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
-    let home = app.path().home_dir().map_err(|error| error.to_string())?;
-    let home = std::fs::canonicalize(home).map_err(|error| error.to_string())?;
-    if !path.starts_with(home)
-        || !path
-            .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("mp4"))
-    {
-        return Err("Choose an MP4 inside your home directory".into());
-    }
-    state.select(&path).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -63,7 +44,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            select_video,
+            video_stream::register_course_roots,
+            video_stream::register_course_root,
+            video_stream::get_media_session,
+            video_stream::get_lesson_url,
             course_scanner::canonicalize_course_root,
             course_scanner::scan_course_folder
         ])

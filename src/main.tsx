@@ -1,12 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
+import { initializePlayback, playbackErrorMessage } from "@/lib/playback";
 
-if (import.meta.env.DEV) {
-	void import("@/lib/db/devCheck")
-		.then(({ runDevCheck }) => runDevCheck())
-		.catch((error: unknown) => console.error("[db dev check] FAIL", error));
-}
+void initializePlayback()
+	.then((results) => console.log("[playback registration]", results))
+	.catch((error: unknown) =>
+		console.error("[playback registration]", playbackErrorMessage(error)),
+	);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>

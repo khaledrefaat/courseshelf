@@ -86,3 +86,13 @@ and the folder-tree sidebar.
 - Rescanning never deletes progress or notes. Lessons whose files disappeared are marked
   `missing_at`, not deleted. Abort the sync (write nothing) if the root is unreadable or the
   scan finds zero videos while lessons exist.
+
+
+## Scanning and sync
+- Scanning is a strict Rust walker (`course_scanner.rs`) feeding a pure parser in
+  `src/lib/scanner`. Video types: mp4, m4v, webm. Everything else is ignored but counted.
+- Folder grants come from the dialog plugin and persist via tauri-plugin-persisted-scope.
+  A missing grant returns `FOLDER_NOT_AUTHORIZED`; the UI must ask the user to re-pick.
+- Sync never deletes lessons: files that disappear get `missing_at` and keep progress and notes.
+  Counts and lists exclude missing lessons. Abort writing nothing if the root is unreadable
+  or zero videos are found while lessons exist.

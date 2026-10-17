@@ -1,19 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
+import {
+	lastCourseKey,
+	readLastCourse,
+} from "@/features/course/lastTestCourse";
 import * as courses from "@/lib/db/courses";
 import { syncCourse } from "@/lib/db/syncCourse";
-
-const lastCourseKey = "courseshelf:scanner-spike:last-course-id";
-
-function readLastCourse(): number | null {
-	try {
-		const value = Number(localStorage.getItem(lastCourseKey));
-		return Number.isSafeInteger(value) && value > 0 ? value : null;
-	} catch {
-		return null;
-	}
-}
+import { registerCourseRoot } from "@/lib/playback";
 
 export function useCourseScanCheck() {
 	const [courseId, setCourseId] = useState(readLastCourse);
@@ -25,6 +19,14 @@ export function useCourseScanCheck() {
 		if (!result.ok) {
 			console.error("[course scan] FAIL", result);
 			setStatus(`${result.code}: ${result.message}`);
+			return;
+		}
+		const registration = await registerCourseRoot(
+			courseId,
+			result.scan.root_path,
+		);
+		if (registration.status !== "registered") {
+			setStatus(registration.message);
 			return;
 		}
 		console.log("[course scan]", {

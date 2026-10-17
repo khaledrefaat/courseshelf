@@ -1,366 +1,561 @@
-//! Throwaway Ubuntu spike: serve only the selected, open file over loopback HTTP.
+//! Course-scoped loopback media, with a new secret and root registry each launch.
+use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
+use serde::{Deserialize, Serialize};
 use std::{
-    fs::File,
-    io::{self, Read, Seek, SeekFrom, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
-    path::Path,
-    sync::{Arc, Mutex},
+    collections::HashMap,
+    fs::{self, File},
+    io::{self, Read, Seek, SeekFrom},
+    net::{Ipv4Addr, SocketAddr},
+    path::{Path, PathBuf},
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
     time::Duration,
 };
+use subtle::ConstantTimeEq;
+use tauri_plugin_fs::FsExt;
+use tiny_http::{Header, Method, Request, Response, ResponseBox, Server, StatusCode};
 
-struct Selection {
+#[derive(Debug, Serialize)]
+pub struct MediaError {
+    code: &'static str,
+    message: &'static str,
+}
+
+fn failure(code: &'static str, message: &'static str) -> MediaError {
+    MediaError { code, message }
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseRoot {
+    course_id: i64,
+    root_path: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RegistrationStatus {
+    Registered,
+    Unauthorized,
+    Missing,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Registration {
+    course_id: i64,
+    status: RegistrationStatus,
+    message: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaSession {
+    base_url: String,
+    session_token: String,
+}
+
+struct Shared {
     token: String,
-    file: Mutex<File>,
-    length: u64,
+    roots: RwLock<HashMap<i64, PathBuf>>,
+    stopped: AtomicBool,
 }
 
 pub struct VideoStream {
     address: SocketAddr,
-    selected: Arc<Mutex<Option<Arc<Selection>>>>,
+    shared: Arc<Shared>,
 }
 
 impl VideoStream {
     pub fn new() -> io::Result<Self> {
-        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))?;
-        let address = listener.local_addr()?;
-        let selected = Arc::new(Mutex::new(None));
-        let state = Self { address, selected };
-        let selected = state.selected.clone();
-        thread::spawn(move || {
-            for connection in listener.incoming() {
-                let Ok(mut connection) = connection else {
-                    break;
-                };
-                let selected = selected.clone();
-                // Concurrent requests let a seek proceed while an earlier request is cancelled.
-                thread::spawn(move || {
-                    if let Err(error) = serve(&mut connection, address, &selected)
-                        && !matches!(
-                            error.kind(),
-                            io::ErrorKind::BrokenPipe | io::ErrorKind::ConnectionReset
-                        )
-                    {
-                        eprintln!("Video stream: {error}");
-                    }
-                });
-            }
-        });
-        Ok(state)
-    }
-
-    pub fn select(&self, path: &Path) -> io::Result<String> {
-        let file = File::open(path)?;
-        let metadata = file.metadata()?;
-        if !metadata.is_file() || metadata.len() == 0 {
-            return Err(io::Error::other("Choose a nonempty regular MP4 file"));
-        }
-        // Linux OS entropy; the URL must not be guessable by unrelated websites.
         let mut secret = [0_u8; 32];
         File::open("/dev/urandom")?.read_exact(&mut secret)?;
-        let token: String = secret.iter().map(|byte| format!("{byte:02x}")).collect();
-        let url = format!("http://{}/{token}/video.mp4", self.address);
-        *self
-            .selected
-            .lock()
-            .map_err(|_| io::Error::other("Stream lock poisoned"))? = Some(Arc::new(Selection {
+        let token = secret.iter().map(|byte| format!("{byte:02x}")).collect();
+        let server = Arc::new(
+            Server::http((Ipv4Addr::LOCALHOST, 0))
+                .map_err(|_| io::Error::other("Could not bind playback server"))?,
+        );
+        let address = server
+            .server_addr()
+            .to_ip()
+            .ok_or_else(|| io::Error::other("Playback server requires a TCP address"))?;
+        let shared = Arc::new(Shared {
             token,
-            file: Mutex::new(file),
-            length: metadata.len(),
-        }));
-        Ok(url)
-    }
-}
-
-fn byte_range(value: &str, length: u64) -> Option<(u64, u64)> {
-    let (start, end) = value.strip_prefix("bytes=")?.split_once('-')?;
-    if start.is_empty() {
-        let suffix = end.parse::<u64>().ok()?;
-        return (suffix > 0).then_some((length.saturating_sub(suffix), length - 1));
-    }
-    let start = start.parse::<u64>().ok()?;
-    let end = if end.is_empty() {
-        length - 1
-    } else {
-        end.parse::<u64>().ok()?.min(length - 1)
-    };
-    (start < length && start <= end).then_some((start, end))
-}
-
-fn headers(
-    stream: &mut TcpStream,
-    status: &str,
-    length: u64,
-    range: Option<&str>,
-) -> io::Result<()> {
-    write!(
-        stream,
-        "HTTP/1.1 {status}\r\nContent-Type: video/mp4\r\nContent-Length: {length}\r\nAccept-Ranges: bytes\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n"
-    )?;
-    if let Some(range) = range {
-        write!(stream, "Content-Range: {range}\r\n")?;
-    }
-    stream.write_all(b"\r\n")
-}
-
-fn serve(
-    stream: &mut TcpStream,
-    address: SocketAddr,
-    selected: &Mutex<Option<Arc<Selection>>>,
-) -> io::Result<()> {
-    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(5)))?;
-    let mut request = [0_u8; 8192];
-    let mut used = 0;
-    loop {
-        let count = stream.read(&mut request[used..])?;
-        if count == 0 {
-            return Ok(());
+            roots: RwLock::new(HashMap::new()),
+            stopped: AtomicBool::new(false),
+        });
+        for _ in 0..4 {
+            let server = server.clone();
+            let shared = shared.clone();
+            thread::Builder::new()
+                .name("course-media".into())
+                .spawn(move || {
+                    while !shared.stopped.load(Ordering::Relaxed) {
+                        match server.recv_timeout(Duration::from_millis(200)) {
+                            Ok(Some(request)) => {
+                                let response = response_for(&request, address, &shared);
+                                // Seeking normally aborts the previous response. Never log its URL or IO error.
+                                let _ = request.respond(response);
+                            }
+                            Ok(None) => {}
+                            Err(_) => break,
+                        }
+                    }
+                })?;
         }
-        used += count;
-        if request[..used].windows(4).any(|bytes| bytes == b"\r\n\r\n") {
-            break;
-        }
-        if used == request.len() {
-            return headers(stream, "431 Request Header Fields Too Large", 0, None);
-        }
+        Ok(Self { address, shared })
     }
-    let Ok(request) = std::str::from_utf8(&request[..used]) else {
-        return headers(stream, "400 Bad Request", 0, None);
-    };
-    let mut lines = request.split("\r\n");
-    let parts: Vec<_> = lines
-        .next()
-        .unwrap_or_default()
-        .split_whitespace()
-        .collect();
-    if parts.len() != 3 || !matches!(parts[2], "HTTP/1.0" | "HTTP/1.1") {
-        return headers(stream, "400 Bad Request", 0, None);
-    }
-    let mut host = None;
-    let mut range = None;
-    for line in lines.take_while(|line| !line.is_empty()) {
-        let Some((name, value)) = line.split_once(':') else {
-            return headers(stream, "400 Bad Request", 0, None);
-        };
-        if name.eq_ignore_ascii_case("host") {
-            if host.is_some() {
-                return headers(stream, "403 Forbidden", 0, None);
+
+    pub fn register_all(
+        &self,
+        roots: Vec<CourseRoot>,
+        allowed: &impl Fn(&Path) -> bool,
+    ) -> Result<Vec<Registration>, MediaError> {
+        let mut registered = HashMap::new();
+        let mut results = Vec::with_capacity(roots.len());
+        for input in roots {
+            let (result, root) = assess_root(&input, allowed);
+            if let Some(root) = root {
+                registered.insert(input.course_id, root);
+            } else {
+                registered.remove(&input.course_id);
             }
-            host = Some(value.trim())
+            results.push(result);
         }
-        if name.eq_ignore_ascii_case("range") {
-            range = Some(value.trim())
+        *self
+            .shared
+            .roots
+            .write()
+            .map_err(|_| failure("SERVER_ERROR", "Root registry unavailable"))? = registered;
+        Ok(results)
+    }
+
+    pub fn register(
+        &self,
+        input: CourseRoot,
+        allowed: &impl Fn(&Path) -> bool,
+    ) -> Result<Registration, MediaError> {
+        let (result, root) = assess_root(&input, allowed);
+        let mut roots = self
+            .shared
+            .roots
+            .write()
+            .map_err(|_| failure("SERVER_ERROR", "Root registry unavailable"))?;
+        // A failed re-registration must revoke the old root rather than keep serving it.
+        roots.remove(&input.course_id);
+        if let Some(root) = root {
+            roots.insert(input.course_id, root);
+        }
+        Ok(result)
+    }
+
+    pub fn lesson_url(&self, course_id: i64, relative_path: &str) -> Result<String, MediaError> {
+        resolve_lesson(&self.shared, course_id, relative_path)?;
+        let encoded = relative_path
+            .split('/')
+            .map(|segment| utf8_percent_encode(segment, NON_ALPHANUMERIC).to_string())
+            .collect::<Vec<_>>()
+            .join("/");
+        Ok(format!(
+            "http://{}/media/{}/{course_id}/{encoded}",
+            self.address, self.shared.token
+        ))
+    }
+
+    fn session(&self) -> MediaSession {
+        MediaSession {
+            base_url: format!("http://{}", self.address),
+            session_token: self.shared.token.clone(),
         }
     }
-    if host != Some(address.to_string().as_str()) {
-        return headers(stream, "403 Forbidden", 0, None);
+}
+
+impl Drop for VideoStream {
+    fn drop(&mut self) {
+        self.shared.stopped.store(true, Ordering::Relaxed);
     }
-    let selection = selected
-        .lock()
-        .map_err(|_| io::Error::other("Stream lock poisoned"))?
-        .clone();
-    let Some(selection) =
-        selection.filter(|selection| parts[1] == format!("/{}/video.mp4", selection.token))
-    else {
-        return headers(stream, "404 Not Found", 0, None);
+}
+
+fn assess_root(
+    input: &CourseRoot,
+    allowed: &impl Fn(&Path) -> bool,
+) -> (Registration, Option<PathBuf>) {
+    let rejected = |status, message: &str| {
+        (
+            Registration {
+                course_id: input.course_id,
+                status,
+                message: message.into(),
+            },
+            None,
+        )
     };
-    if !matches!(parts[0], "GET" | "HEAD") {
-        return headers(stream, "405 Method Not Allowed", 0, None);
+    let path = Path::new(&input.root_path);
+    if input.course_id <= 0 || !path.is_absolute() || !allowed(path) {
+        return rejected(
+            RegistrationStatus::Unauthorized,
+            "Folder not authorized; re-pick the course folder.",
+        );
     }
-    if parts[0] == "HEAD" {
-        return headers(stream, "200 OK", selection.length, None);
-    }
-    let (start, end) = if let Some(range) = range {
-        let Some(range) = byte_range(range, selection.length) else {
-            return headers(
-                stream,
-                "416 Range Not Satisfiable",
-                0,
-                Some(&format!("bytes */{}", selection.length)),
+    let canonical = match fs::canonicalize(path) {
+        Ok(path) => path,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return rejected(
+                RegistrationStatus::Missing,
+                "Course folder is missing or its drive is not mounted.",
             );
-        };
-        range
-    } else {
-        (0, selection.length - 1)
-    };
-    let content_range = format!("bytes {start}-{end}/{}", selection.length);
-    headers(
-        stream,
-        if range.is_some() {
-            "206 Partial Content"
-        } else {
-            "200 OK"
-        },
-        end - start + 1,
-        range.map(|_| content_range.as_str()),
-    )?;
-    let mut offset = start;
-    let mut buffer = [0_u8; 64 * 1024];
-    while offset <= end {
-        let count = (end - offset + 1).min(buffer.len() as u64) as usize;
-        {
-            let mut file = selection
-                .file
-                .lock()
-                .map_err(|_| io::Error::other("File lock poisoned"))?;
-            file.seek(SeekFrom::Start(offset))?;
-            file.read_exact(&mut buffer[..count])?;
         }
-        stream.write_all(&buffer[..count])?;
-        offset += count as u64;
+        Err(_) => {
+            return rejected(
+                RegistrationStatus::Unauthorized,
+                "Course folder is not readable.",
+            );
+        }
+    };
+    if !allowed(&canonical) {
+        return rejected(
+            RegistrationStatus::Unauthorized,
+            "Folder not authorized; re-pick the course folder.",
+        );
+    }
+    if !canonical.is_dir() {
+        return rejected(
+            RegistrationStatus::Missing,
+            "Course root is not a directory.",
+        );
+    }
+    if fs::read_dir(&canonical).is_err() {
+        return rejected(
+            RegistrationStatus::Unauthorized,
+            "Course folder is not readable.",
+        );
+    }
+    (
+        Registration {
+            course_id: input.course_id,
+            status: RegistrationStatus::Registered,
+            message: "Course folder registered.".into(),
+        },
+        Some(canonical),
+    )
+}
+
+struct OpenedLesson {
+    file: File,
+    length: u64,
+    mime: &'static str,
+}
+
+fn content_type(relative: &str) -> Result<&'static str, MediaError> {
+    match Path::new(relative)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("mp4" | "m4v") => Ok("video/mp4"),
+        Some("webm") => Ok("video/webm"),
+        _ => Err(failure(
+            "INVALID_PATH",
+            "Only mp4, m4v and webm lessons are allowed",
+        )),
+    }
+}
+
+fn check_components(root: &Path, relative: &str) -> Result<(), MediaError> {
+    let mut path = root.to_path_buf();
+    for component in std::iter::once("").chain(relative.split('/')) {
+        path.push(component);
+        let metadata = fs::symlink_metadata(&path).map_err(|_| {
+            failure(
+                "LESSON_MISSING",
+                "Lesson or course folder is missing or unreadable",
+            )
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(failure("INVALID_PATH", "Symlinks are not allowed"));
+        }
     }
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_seek_ranges() {
-        assert_eq!(byte_range("bytes=2-5", 10), Some((2, 5)));
-        assert_eq!(byte_range("bytes=7-", 10), Some((7, 9)));
-        assert_eq!(byte_range("bytes=-3", 10), Some((7, 9)));
-        assert_eq!(byte_range("bytes=-20", 10), Some((0, 9)));
-        assert_eq!(byte_range("bytes=2-50", 10), Some((2, 9)));
-        for invalid in [
-            "bytes=10-",
-            "bytes=5-2",
-            "bytes=-0",
-            "bytes=0-1,4-5",
-            "invalid",
-        ] {
-            assert_eq!(byte_range(invalid, 10), None, "{invalid}");
-        }
-    }
-
-    fn request(server: &VideoStream, route: &str, method: &str, extra: &str) -> Vec<u8> {
-        raw_request(
-            server,
-            &format!(
-                "{method} {route} HTTP/1.1\r\nHost: {}\r\n{extra}\r\n",
-                server.address
-            ),
-        )
-    }
-
-    fn raw_request(server: &VideoStream, request: &str) -> Vec<u8> {
-        let mut socket = TcpStream::connect(server.address).unwrap();
-        socket
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        socket.write_all(request.as_bytes()).unwrap();
-        let mut response = Vec::new();
-        socket.read_to_end(&mut response).unwrap();
-        response
-    }
-
-    #[test]
-    fn serves_only_selected_file_and_correct_bytes() {
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
-            "target/video-stream-test-{}.mp4",
-            std::process::id()
+fn resolve_lesson(
+    shared: &Shared,
+    course_id: i64,
+    relative: &str,
+) -> Result<OpenedLesson, MediaError> {
+    if relative.is_empty()
+        || relative.contains(['\\', '\0', ':'])
+        || relative
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+        || Path::new(relative).is_absolute()
+    {
+        return Err(failure(
+            "INVALID_PATH",
+            "An ordinary relative lesson path is required",
         ));
-        std::fs::write(&fixture, b"0123456789").unwrap();
-        let server = VideoStream::new().unwrap();
-        assert_eq!(server.address.ip(), std::net::Ipv4Addr::LOCALHOST);
-        assert_ne!(server.address.port(), 0);
-        let url = server.select(&fixture).unwrap();
-        let route = url
-            .strip_prefix(&format!("http://{}", server.address))
-            .unwrap();
-        let token = route
-            .strip_prefix('/')
-            .unwrap()
-            .strip_suffix("/video.mp4")
-            .unwrap();
-        assert_eq!(token.len(), 64);
-        assert!(token.bytes().all(|byte| byte.is_ascii_hexdigit()));
-
-        let response = request(&server, route, "GET", "");
-        let response = String::from_utf8(response).unwrap();
-        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
-        assert!(
-            !response
-                .to_ascii_lowercase()
-                .contains("access-control-allow-origin")
-        );
-        assert!(response.ends_with("\r\n\r\n0123456789"));
-        for host in [None, Some("evil.example"), Some("127.0.0.1:1")] {
-            let host = host
-                .map(|host| format!("Host: {host}\r\n"))
-                .unwrap_or_default();
-            assert!(
-                raw_request(&server, &format!("GET {route} HTTP/1.1\r\n{host}\r\n"))
-                    .starts_with(b"HTTP/1.1 403")
-            );
-        }
-        // Duplicate Host fields are rejected, even if the last value is correct.
-        assert!(
-            request(
-                &server,
-                route,
-                "GET",
-                &format!("Host: {}\r\n", server.address)
-            )
-            .starts_with(b"HTTP/1.1 403")
-        );
-        for (range, expected, content_range) in [
-            ("bytes=2-5", "2345", "bytes 2-5/10"),
-            ("bytes=7-", "789", "bytes 7-9/10"),
-            ("bytes=-3", "789", "bytes 7-9/10"),
-        ] {
-            let response = request(&server, route, "GET", &format!("Range: {range}\r\n"));
-            let response = String::from_utf8(response).unwrap();
-            assert!(response.starts_with("HTTP/1.1 206 Partial Content\r\n"));
-            assert!(response.contains(&format!("Content-Range: {content_range}\r\n")));
-            assert!(response.ends_with(&format!("\r\n\r\n{expected}")));
-        }
-        let head = String::from_utf8(request(&server, route, "HEAD", "")).unwrap();
-        assert!(head.contains("Content-Length: 10\r\n"));
-        assert!(head.ends_with("\r\n\r\n"));
-        let unsatisfiable =
-            String::from_utf8(request(&server, route, "GET", "Range: bytes=10-\r\n")).unwrap();
-        assert!(unsatisfiable.starts_with("HTTP/1.1 416 Range Not Satisfiable\r\n"));
-        assert!(unsatisfiable.contains("Content-Range: bytes */10\r\n"));
-        assert!(unsatisfiable.contains("Content-Length: 0\r\n"));
-        assert!(request(&server, "/etc/passwd", "GET", "").starts_with(b"HTTP/1.1 404"));
-        assert!(request(&server, route, "POST", "").starts_with(b"HTTP/1.1 405"));
-        server.select(&fixture).unwrap();
-        assert!(request(&server, route, "GET", "").starts_with(b"HTTP/1.1 404"));
-        std::fs::remove_file(fixture).unwrap();
     }
-
-    #[test]
-    #[ignore = "Requires a real MP4 path in COURSESHELF_TEST_VIDEO and gst-launch-1.0"]
-    fn decodes_real_video_over_http() {
-        let server = VideoStream::new().unwrap();
-        let path = std::env::var("COURSESHELF_TEST_VIDEO").unwrap();
-        let url = server.select(Path::new(&path)).unwrap();
-        let status = std::process::Command::new("timeout")
-            .args([
-                "45s",
-                "gst-launch-1.0",
-                "-q",
-                "uridecodebin",
-                &format!("uri={url}"),
-                "name=decoded",
-                "decoded.",
-                "!",
-                "queue",
-                "!",
-                "fakesink",
-                "sync=false",
-                "decoded.",
-                "!",
-                "queue",
-                "!",
-                "fakesink",
-                "sync=false",
-            ])
-            .status()
-            .unwrap();
-        assert!(status.success(), "GStreamer HTTP decode failed: {status}");
+    let mime = content_type(relative)?;
+    let root = shared
+        .roots
+        .read()
+        .map_err(|_| failure("SERVER_ERROR", "Root registry unavailable"))?
+        .get(&course_id)
+        .cloned()
+        .ok_or_else(|| failure("COURSE_NOT_REGISTERED", "Course folder is not registered"))?;
+    check_components(&root, relative)?;
+    if fs::canonicalize(&root).map_err(|_| failure("LESSON_MISSING", "Course folder is missing"))?
+        != root
+    {
+        return Err(failure(
+            "INVALID_PATH",
+            "Course root changed; register it again",
+        ));
     }
+    let path = root.join(relative);
+    let canonical = fs::canonicalize(&path)
+        .map_err(|_| failure("LESSON_MISSING", "Lesson is missing or unreadable"))?;
+    if !canonical.starts_with(&root) {
+        return Err(failure(
+            "INVALID_PATH",
+            "Lesson resolved outside its course folder",
+        ));
+    }
+    let file = File::open(&canonical)
+        .map_err(|_| failure("LESSON_MISSING", "Lesson is missing or unreadable"))?;
+    let metadata = file
+        .metadata()
+        .map_err(|_| failure("LESSON_MISSING", "Lesson metadata unavailable"))?;
+    if !metadata.is_file() {
+        return Err(failure("INVALID_PATH", "Lesson must be a regular file"));
+    }
+    // Recheck after opening, including inode identity, to detect path substitutions.
+    check_components(&root, relative)?;
+    if fs::canonicalize(&path).map_err(|_| failure("LESSON_MISSING", "Lesson disappeared"))?
+        != canonical
+    {
+        return Err(failure("INVALID_PATH", "Lesson path changed while opening"));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let current = fs::symlink_metadata(&canonical)
+            .map_err(|_| failure("LESSON_MISSING", "Lesson disappeared"))?;
+        if metadata.dev() != current.dev() || metadata.ino() != current.ino() {
+            return Err(failure("INVALID_PATH", "Lesson changed while opening"));
+        }
+    }
+    Ok(OpenedLesson {
+        file,
+        length: metadata.len(),
+        mime,
+    })
 }
+
+fn decode_path(encoded: &str) -> Result<String, MediaError> {
+    let bytes = encoded.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit()
+            {
+                return Err(failure("INVALID_PATH", "Invalid URL encoding"));
+            }
+            index += 3;
+        } else {
+            index += 1;
+        }
+    }
+    percent_decode_str(encoded)
+        .decode_utf8()
+        .map(|path| path.into_owned())
+        .map_err(|_| failure("INVALID_PATH", "Invalid UTF-8 path"))
+}
+
+fn resolve_route(shared: &Shared, route: &str) -> Result<OpenedLesson, MediaError> {
+    if route.contains(['?', '#']) {
+        return Err(failure(
+            "INVALID_PATH",
+            "Query strings and fragments are not media paths",
+        ));
+    }
+    let mut parts = route
+        .strip_prefix("/media/")
+        .ok_or_else(|| failure("INVALID_PATH", "Invalid media route"))?
+        .splitn(3, '/');
+    let token = parts.next().unwrap_or_default();
+    // Token length is public and fixed; equal-length bytes are compared in constant time.
+    if !bool::from(token.as_bytes().ct_eq(shared.token.as_bytes())) {
+        return Err(failure("BAD_TOKEN", "Invalid media session"));
+    }
+    let course_id = parts
+        .next()
+        .and_then(|part| part.parse::<i64>().ok())
+        .filter(|id| *id > 0)
+        .ok_or_else(|| failure("INVALID_PATH", "Invalid course ID"))?;
+    let relative = decode_path(parts.next().unwrap_or_default())?;
+    resolve_lesson(shared, course_id, &relative)
+}
+
+fn byte_range(value: &str, length: u64) -> Option<(u64, u64)> {
+    if length == 0 {
+        return None;
+    }
+    let (start, end) = value.strip_prefix("bytes=")?.split_once('-')?;
+    let number = |value: &str| -> Option<u64> {
+        if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        value.parse().ok()
+    };
+    if start.is_empty() {
+        let suffix = number(end)?;
+        return (suffix > 0).then_some((length.saturating_sub(suffix), length - 1));
+    }
+    let start = number(start)?;
+    let end = if end.is_empty() {
+        length - 1
+    } else {
+        number(end)?.min(length - 1)
+    };
+    (start < length && start <= end).then_some((start, end))
+}
+
+fn header(name: &str, value: &str) -> Header {
+    // Callers only use constant header names and controlled ASCII values.
+    Header::from_bytes(name, value).expect("valid media response header")
+}
+
+fn common(response: ResponseBox) -> ResponseBox {
+    response
+        .with_header(header("Accept-Ranges", "bytes"))
+        .with_header(header("Cache-Control", "no-store"))
+        .with_header(header("X-Content-Type-Options", "nosniff"))
+        .with_header(header("Referrer-Policy", "no-referrer"))
+}
+
+fn empty(status: u16) -> ResponseBox {
+    common(Response::empty(StatusCode(status)).boxed())
+}
+
+fn response_for(request: &Request, address: SocketAddr, shared: &Shared) -> ResponseBox {
+    let hosts: Vec<_> = request
+        .headers()
+        .iter()
+        .filter(|header| header.field.equiv("Host"))
+        .collect();
+    if hosts.len() != 1 || hosts[0].value.as_str() != address.to_string() {
+        return empty(403);
+    }
+    if request.method() != &Method::Get && request.method() != &Method::Head {
+        return empty(405).with_header(header("Allow", "GET, HEAD"));
+    }
+    let mut lesson = match resolve_route(shared, request.url()) {
+        Ok(lesson) => lesson,
+        Err(error) => {
+            return empty(match error.code {
+                "BAD_TOKEN" | "INVALID_PATH" => 403,
+                "SERVER_ERROR" => 500,
+                _ => 404,
+            });
+        }
+    };
+    let ranges: Vec<_> = request
+        .headers()
+        .iter()
+        .filter(|header| header.field.equiv("Range"))
+        .collect();
+    let range = if request.method() == &Method::Head || ranges.is_empty() {
+        None
+    } else {
+        let parsed = if ranges.len() == 1 {
+            byte_range(ranges[0].value.as_str(), lesson.length)
+        } else {
+            None
+        };
+        match parsed {
+            Some(range) => Some(range),
+            None => {
+                return empty(416).with_header(header(
+                    "Content-Range",
+                    &format!("bytes */{}", lesson.length),
+                ));
+            }
+        }
+    };
+    let (start, length) = range
+        .map(|(start, end)| (start, end - start + 1))
+        .unwrap_or((0, lesson.length));
+    if lesson.file.seek(SeekFrom::Start(start)).is_err() {
+        return empty(500);
+    }
+    let Ok(data_length) = usize::try_from(length) else {
+        return empty(500);
+    };
+    let mut response = Response::new(
+        StatusCode(if range.is_some() { 206 } else { 200 }),
+        vec![header("Content-Type", lesson.mime)],
+        lesson.file.take(length),
+        Some(data_length),
+        None,
+    )
+    .with_chunked_threshold(usize::MAX)
+    .boxed();
+    if let Some((start, end)) = range {
+        response = response.with_header(header(
+            "Content-Range",
+            &format!("bytes {start}-{end}/{}", lesson.length),
+        ));
+    }
+    common(response)
+}
+
+#[tauri::command]
+pub fn register_course_roots(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VideoStream>,
+    roots: Vec<CourseRoot>,
+) -> Result<Vec<Registration>, MediaError> {
+    let scope = app.fs_scope();
+    state.register_all(roots, &|path| scope.is_allowed(path))
+}
+
+#[tauri::command]
+pub fn register_course_root(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VideoStream>,
+    course_id: i64,
+    root_path: String,
+) -> Result<Registration, MediaError> {
+    let scope = app.fs_scope();
+    state.register(
+        CourseRoot {
+            course_id,
+            root_path,
+        },
+        &|path| scope.is_allowed(path),
+    )
+}
+
+#[tauri::command]
+pub fn get_media_session(state: tauri::State<'_, VideoStream>) -> MediaSession {
+    state.session()
+}
+
+#[tauri::command]
+pub fn get_lesson_url(
+    state: tauri::State<'_, VideoStream>,
+    course_id: i64,
+    relative_path: String,
+) -> Result<String, MediaError> {
+    state.lesson_url(course_id, &relative_path)
+}
+
+#[cfg(test)]
+mod tests;
