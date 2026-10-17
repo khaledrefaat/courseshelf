@@ -10,6 +10,7 @@ import {
 	parseId,
 } from "@/features/course/outline";
 import { useCourse } from "@/features/course/useCourse";
+import { NotesPanel } from "@/features/notes/NotesPanel";
 import type { CourseOutline, OutlineLesson } from "@/lib/db/courseOutline";
 
 function CourseMessage({ message }: { message: string }) {
@@ -145,6 +146,11 @@ function CourseContent({
 							{progressError}
 						</p>
 					)}
+					<NotesPanel
+						courseId={outline.course.id}
+						lessonId={lesson.id}
+						lessons={outline.lessons}
+					/>
 				</main>
 			</div>
 		</div>

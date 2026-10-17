@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { CoursePage } from "@/features/course/CoursePage";
 import { AddCourseDialog } from "@/features/library/add-course/AddCourseDialog";
 import { LibraryPage } from "@/features/library/LibraryPage";
+import { NotesWarnings } from "@/features/notes/NotesWarnings";
 
 const VideoSpike = import.meta.env.DEV
 	? lazy(() => import("@/features/course/VideoSpike"))
@@ -31,6 +32,7 @@ function Shell() {
 				courseRoute ? "h-dvh overflow-hidden" : "flex min-h-dvh flex-col"
 			}
 		>
+			<NotesWarnings />
 			{!courseRoute && (
 				<header className="border-b bg-card">
 					<div className="mx-auto flex min-h-18 max-w-360 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-10">

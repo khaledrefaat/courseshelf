@@ -104,3 +104,9 @@ and the folder-tree sidebar.
 - Window close flushes pending writes with a 2s timeout and always closes anyway.
 - Anything with pending writes (progress, notes) registers with the shared flush mechanism so the
   Library re-query and the close handler wait for it.
+
+
+## File safety
+- Never delete, move, rename or modify anything inside a course folder. Courseshelf only
+  writes to its own app data (database, `covers/`). Removing a course removes database rows
+  and its cover copy, never the videos.
