@@ -8,6 +8,10 @@
 		"opener:default",
 		"dialog:allow-open",
 		"fs:deny-default",
+		{
+			"identifier": "fs:allow-read-file",
+			"allow": [{ "path": "$APPDATA/covers/**" }]
+		},
 		"sql:allow-load",
 		"sql:allow-select",
 		"sql:allow-execute"
