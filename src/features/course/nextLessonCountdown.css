@@ -1,6 +1,6 @@
 /* Presentation only: the controller remains the source of truth for navigation. */
 .next-lesson-countdown {
-	animation: next-lesson-enter 220ms ease-out both;
+	animation: next-lesson-enter 300ms ease-out both;
 }
 
 .next-lesson-countdown-ring {
@@ -23,11 +23,11 @@
 @keyframes next-lesson-enter {
 	from {
 		opacity: 0;
-		transform: translateY(6px) scale(0.96);
+		transform: translate(12px, -12px) scale(0.95);
 	}
 	to {
 		opacity: 1;
-		transform: translateY(0) scale(1);
+		transform: translate(0, 0) scale(1);
 	}
 }
 

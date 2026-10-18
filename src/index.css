@@ -40,6 +40,12 @@
 	--player: #191510;
 	--overlay: #0d0a07;
 	--player-foreground: #fffcf7;
+	/* "Up next" pill over the video: solid white in light mode, dark glass in
+	   dark mode (alpha baked into the .dark token) — theme-aware, unlike the
+	   always-dark player tokens. Blur is applied dark-only in the component. */
+	--countdown: #ffffff;
+	--countdown-foreground: #18181b;
+	--countdown-brand: #843b68;
 	--cover-1-from: #d5eff2;
 	--cover-1-to: #a7d3dc;
 	--cover-2-from: #dfe6ff;
@@ -84,6 +90,9 @@
 	--brand: #d58ab7;
 	--brand-foreground: #291c24;
 	--brand-soft: #402f32;
+	--countdown: rgb(37 33 25 / 0.7);
+	--countdown-foreground: #f2ece2;
+	--countdown-brand: #d58ab7;
 	--cover-1-from: #20434a;
 	--cover-1-to: #142b30;
 	--cover-2-from: #28334f;
@@ -109,6 +118,9 @@
 	--color-player: var(--player);
 	--color-overlay: var(--overlay);
 	--color-player-foreground: var(--player-foreground);
+	--color-countdown: var(--countdown);
+	--color-countdown-foreground: var(--countdown-foreground);
+	--color-countdown-brand: var(--countdown-brand);
 	--font-sans: "Inter Variable", system-ui, sans-serif;
 	--font-heading: var(--font-sans);
 
