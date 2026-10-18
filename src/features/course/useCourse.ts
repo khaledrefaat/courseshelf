@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import {
+	discoverDurations,
+	readVideoDuration,
+} from "@/features/course/durations";
 import { persistCompletion } from "@/features/course/progressActions";
 import { useManagement } from "@/features/course-management/state";
 import { type CourseOutline, getCourseOutline } from "@/lib/db/courseOutline";
 import { listCourseSummaries } from "@/lib/db/courseSummaries";
+import { durationRevision, saveDuration } from "@/lib/db/durations";
+import { getLessonUrl } from "@/lib/playback";
 
 export function useCourse(courseId: number) {
 	const { revision } = useManagement();
@@ -18,6 +24,7 @@ export function useCourse(courseId: number) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Management mutations explicitly invalidate this query.
 	useEffect(() => {
 		let active = true;
+		const abort = new AbortController();
 		mounted.current = true;
 		void Promise.all([getCourseOutline(courseId), listCourseSummaries()])
 			.then(([outline, summaries]) => {
@@ -28,6 +35,43 @@ export function useCourse(courseId: number) {
 							summaries.find((course) => course.id === courseId)
 								?.resume_lesson_id ?? null,
 					});
+				if (active && outline) {
+					const cacheRevision = durationRevision(courseId);
+					void discoverDurations(
+						outline.lessons,
+						abort.signal,
+						async (row) =>
+							readVideoDuration(
+								await getLessonUrl(courseId, row.relative_path),
+								abort.signal,
+							),
+						async (lesson, seconds) => {
+							if (!active) return;
+							const saved = await saveDuration(
+								courseId,
+								lesson.id,
+								seconds,
+								cacheRevision,
+							);
+							if (active && saved)
+								setData((previous) =>
+									previous?.outline
+										? {
+												...previous,
+												outline: {
+													...previous.outline,
+													lessons: previous.outline.lessons.map((row) =>
+														row.id === lesson.id
+															? { ...row, duration_seconds: seconds }
+															: row,
+													),
+												},
+											}
+										: previous,
+								);
+						},
+					);
+				}
 			})
 			.catch(() => {
 				if (active)
@@ -37,6 +81,7 @@ export function useCourse(courseId: number) {
 			});
 		return () => {
 			active = false;
+			abort.abort();
 			mounted.current = false;
 		};
 	}, [courseId, revision]);

@@ -6,84 +6,156 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-    /* shadcn semantic tokens */
-    --background: #f1f0f6;
-    --foreground: #16161a;
-    --card: #ffffff;
-    --card-foreground: #16161a;
-    --popover: #ffffff;
-    --popover-foreground: #16161a;
-    --primary: #16161a;
-    /* near-black: "Add course", "Resume", "Mark as complete" */
-    --primary-foreground: #ffffff;
-    --secondary: #ffffff;
-    --secondary-foreground: #16161a;
-    --muted: #f1f0f6;
-    --muted-foreground: #6b6b7b;
-    --accent: #f1f0f6;
-    /* shadcn's hover/selected surface, NOT the brand color */
-    --accent-foreground: #16161a;
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: #e6e5ee;
-    --input: #e6e5ee;
-    --ring: #4f46e5;
-    --radius: 0.75rem;
+	/* shadcn semantic tokens */
+	color-scheme: light;
+	--background: #ffffff;
+	--header: #843b68;
+	--header-foreground: #ffffff;
+	--header-search: #e9c9dd;
+	--foreground: #18181b;
+	--card: #ffffff;
+	--card-foreground: #18181b;
+	--popover: #ffffff;
+	--popover-foreground: #18181b;
+	--primary: #18181b;
+	/* near-black: "Add course", "Resume", "Mark as complete" */
+	--primary-foreground: #ffffff;
+	--secondary: #ffffff;
+	--secondary-foreground: #18181b;
+	--muted: #f4f4f5;
+	--muted-foreground: #71717a;
+	--accent: #f4f4f5;
+	/* shadcn's hover/selected surface, NOT the brand color */
+	--accent-foreground: #18181b;
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: #e4e4e7;
+	--input: #e4e4e7;
+	--ring: #843b68;
+	--radius: 0.75rem;
 
-    /* Courseshelf brand (indigo): progress, completion, active lesson, links */
-    --brand: #4f46e5;
-    --brand-foreground: #ffffff;
-    --brand-soft: #eeedfb;
-    /* active lesson row, "Detected 6 sections" banner */
+	/* Progress, completion, active lesson and links. */
+	--brand: #843b68;
+	--brand-foreground: #ffffff;
+	--brand-soft: #f3e8ec;
+	--player: #191510;
+	--overlay: #0d0a07;
+	--player-foreground: #fffcf7;
+	--cover-1-from: #d5eff2;
+	--cover-1-to: #a7d3dc;
+	--cover-2-from: #dfe6ff;
+	--cover-2-to: #bdc9fa;
+	--cover-3-from: #ddf2e5;
+	--cover-3-to: #b1dec7;
+	--cover-4-from: #e9ddf6;
+	--cover-4-to: #ccb5ec;
+	--cover-5-from: #fce5d0;
+	--cover-5-to: #f4c9a8;
+	--cover-6-from: #e3e5fb;
+	--cover-6-to: #bfc4ef;
+	--cover-7-from: #f9dfe9;
+	--cover-7-to: #edb5cd;
+	--cover-8-from: #f5f0ce;
+	--cover-8-to: #e2dd9b;
+	/* active lesson row, "Detected 6 sections" banner */
+}
+
+.dark {
+	color-scheme: dark;
+	--header: var(--background);
+	--header-foreground: var(--foreground);
+	--background: #1b1813;
+	--foreground: #f2ece2;
+	--card: #252119;
+	--card-foreground: #f2ece2;
+	--popover: #252119;
+	--popover-foreground: #f2ece2;
+	--primary: #f2ece2;
+	--primary-foreground: #2c261d;
+	--secondary: #252119;
+	--secondary-foreground: #f2ece2;
+	--muted: #332e26;
+	--muted-foreground: #b0a697;
+	--accent: #332e26;
+	--accent-foreground: #f2ece2;
+	--destructive: #ef8f89;
+	--border: #3b352c;
+	--input: #3b352c;
+	--ring: #d58ab7;
+	--brand: #d58ab7;
+	--brand-foreground: #291c24;
+	--brand-soft: #402f32;
+	--cover-1-from: #20434a;
+	--cover-1-to: #142b30;
+	--cover-2-from: #28334f;
+	--cover-2-to: #1b2238;
+	--cover-3-from: #254936;
+	--cover-3-to: #162d23;
+	--cover-4-from: #403052;
+	--cover-4-to: #281c39;
+	--cover-5-from: #5b3b20;
+	--cover-5-to: #302114;
+	--cover-6-from: #303c60;
+	--cover-6-to: #1c243e;
+	--cover-7-from: #552a40;
+	--cover-7-to: #301a28;
+	--cover-8-from: #4b4925;
+	--cover-8-to: #302f17;
 }
 
 @theme inline {
-    --font-sans: "Inter Variable", system-ui, sans-serif;
-    --font-heading: var(--font-sans);
+	--color-header: var(--header);
+	--color-header-foreground: var(--header-foreground);
+	--color-header-search: var(--header-search);
+	--color-player: var(--player);
+	--color-overlay: var(--overlay);
+	--color-player-foreground: var(--player-foreground);
+	--font-sans: "Inter Variable", system-ui, sans-serif;
+	--font-heading: var(--font-sans);
 
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --color-card: var(--card);
-    --color-card-foreground: var(--card-foreground);
-    --color-popover: var(--popover);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-primary: var(--primary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-secondary: var(--secondary);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-muted: var(--muted);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-accent: var(--accent);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-destructive: var(--destructive);
-    --color-border: var(--border);
-    --color-input: var(--input);
-    --color-ring: var(--ring);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
 
-    --color-brand: var(--brand);
-    --color-brand-foreground: var(--brand-foreground);
-    --color-brand-soft: var(--brand-soft);
+	--color-brand: var(--brand);
+	--color-brand-foreground: var(--brand-foreground);
+	--color-brand-soft: var(--brand-soft);
 
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
 }
 
 @theme {
-    --shadow-card: 0 1px 2px rgb(22 22 26 / 0.04), 0 1px 3px rgb(22 22 26 / 0.06);
+	--shadow-card: 0 1px 2px rgb(22 22 26 / 0.04), 0 1px 3px rgb(22 22 26 / 0.06);
 }
 
 @layer base {
-    * {
-        @apply border-border outline-ring/50;
-    }
+	* {
+		@apply border-border outline-ring/50;
+	}
 
-    body {
-        @apply bg-background text-foreground antialiased;
-    }
+	body {
+		@apply bg-background text-foreground antialiased;
+	}
 
-    html {
-        @apply font-sans;
-    }
+	html {
+		@apply font-sans;
+	}
 }

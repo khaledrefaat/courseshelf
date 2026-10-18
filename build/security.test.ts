@@ -35,10 +35,23 @@ describe("release security configuration", () => {
 			"core:event:allow-listen",
 			"core:event:allow-unlisten",
 			"core:window:allow-destroy",
+			"core:window:allow-set-fullscreen",
+			"core:window:allow-is-fullscreen",
 		]);
 		expect(permissions).not.toContain("opener:default");
 		expect(JSON.stringify(capabilities)).not.toContain("$HOME");
 		expect(capabilities.windows).toEqual(["main"]);
+	});
+	it("starts maximized, not fullscreen, with sensible restored/minimum sizes", () => {
+		const window = config.app.windows[0];
+		expect(window.maximized).toBe(true);
+		expect(window.fullscreen ?? false).toBe(false);
+		expect([
+			window.width,
+			window.height,
+			window.minWidth,
+			window.minHeight,
+		]).toEqual([1280, 800, 960, 640]);
 	});
 	it("preserves application identity and declares playback packages", () => {
 		expect(config.identifier).toBe("com.khaled.courseshelf");

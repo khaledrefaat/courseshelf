@@ -5,6 +5,13 @@ import App from "@/App";
 import "@/index.css";
 import { installCloseFlush } from "@/features/course/closeProgress";
 import { initializePlayback, playbackErrorMessage } from "@/lib/playback";
+import { followSystemTheme } from "@/lib/systemTheme";
+
+const stopTheme = followSystemTheme(
+	window.matchMedia("(prefers-color-scheme: dark)"),
+	document.documentElement,
+);
+if (import.meta.hot) import.meta.hot.dispose(stopTheme);
 
 const closeListener = installCloseFlush().catch(() => undefined);
 if (import.meta.hot)

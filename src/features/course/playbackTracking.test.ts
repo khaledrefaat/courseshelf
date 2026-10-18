@@ -1,9 +1,24 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { trackPlayback } from "@/features/course/playbackTracking";
+import { playerShortcuts } from "@/features/course/playerShortcuts";
 import { startPosition } from "@/features/course/trackingRules";
 
 class FakeVideo extends EventTarget {
-	currentTime = 0;
+	private position = 0;
+	nativeSeekEvents = false;
+	volume = 1;
+	muted = false;
+	ended = false;
+	get currentTime() {
+		return this.position;
+	}
+	set currentTime(value: number) {
+		this.position = value;
+		if (this.nativeSeekEvents) {
+			this.seeking = true;
+			this.emit("seeking");
+		}
+	}
 	duration = 100;
 	readyState = 0;
 	paused = true;
@@ -19,6 +34,20 @@ class FakeVideo extends EventTarget {
 	play() {
 		this.paused = false;
 		this.emit("play");
+	}
+	pause() {
+		this.paused = true;
+		this.emit("pause");
+	}
+	finishNativeSeek() {
+		this.seeking = false;
+		this.emit("seeked");
+		this.emit("timeupdate");
+		if (!this.paused && this.currentTime === this.duration) {
+			this.ended = true;
+			this.paused = true;
+			this.emit("ended");
+		}
 	}
 	seeked(position: number) {
 		this.currentTime = position;
@@ -278,5 +307,98 @@ it("reports failed saves without unhandled rejections and can retry the unsaved 
 	expect(f.onError).toHaveBeenCalledOnce();
 	f.controller.flush();
 	expect(f.save).toHaveBeenCalledTimes(2);
+	f.controller.dispose();
+});
+
+function keyboard(f: ReturnType<typeof fixture>) {
+	const controller = playerShortcuts({
+		video: () => f.video,
+		canSeek: f.controller.canSeek,
+		focus: vi.fn(),
+		indicate: vi.fn(),
+		toggleFullscreen: vi.fn(),
+		exitFullscreen: vi.fn(),
+		isFullscreen: () => false,
+	});
+	return (key: string) =>
+		controller.keydown(
+			Object.assign(new Event("keydown", { cancelable: true }), {
+				key,
+				code: key,
+				repeat: false,
+				isComposing: false,
+				ctrlKey: false,
+				altKey: false,
+				metaKey: false,
+			}),
+			{ blocked: false, activationTarget: false },
+		);
+}
+
+it("keyboard seeks cannot change or save the transient zero before resume confirmation", () => {
+	const f = fixture(42);
+	f.video.nativeSeekEvents = true;
+	const key = keyboard(f);
+	f.video.metadata();
+	f.video.currentTime = 0;
+	f.video.play();
+	vi.setSystemTime(6000);
+	key("ArrowRight");
+	expect(f.video.currentTime).toBe(0);
+	f.video.emit("timeupdate");
+	f.controller.flush();
+	expect(f.save).not.toHaveBeenCalled();
+	f.video.seeked(42);
+	key("ArrowRight");
+	expect(f.video.currentTime).toBe(52);
+	f.controller.flush();
+	expect(f.save).not.toHaveBeenCalled(); // Mid-seek is also protected.
+	f.video.finishNativeSeek();
+	expect(f.save).toHaveBeenLastCalledWith(52);
+	f.controller.dispose();
+});
+
+it("a playing keyboard seek past 90 percent completes only after native seeking ends, and respects Undo", () => {
+	const f = fixture();
+	f.video.metadata();
+	f.video.play();
+	f.video.nativeSeekEvents = true;
+	f.video.currentTime = 85;
+	f.video.finishNativeSeek();
+	const key = keyboard(f);
+	key("ArrowRight");
+	expect(f.video.currentTime).toBe(95);
+	f.video.emit("timeupdate");
+	expect(f.complete).not.toHaveBeenCalled();
+	f.video.finishNativeSeek();
+	expect(f.complete).toHaveBeenCalledOnce();
+	f.controller.updateCompleted(true);
+	f.controller.updateCompleted(false);
+	key("ArrowLeft");
+	f.video.finishNativeSeek();
+	key("ArrowRight");
+	f.video.finishNativeSeek();
+	expect(f.complete).toHaveBeenCalledOnce();
+	f.controller.dispose();
+});
+
+it("a keyboard seek beyond the end clamps, lets the media emit ended and saves the final position, never zero", () => {
+	const f = fixture();
+	f.video.duration = 20;
+	f.video.metadata();
+	f.video.play();
+	f.video.nativeSeekEvents = true;
+	f.video.currentTime = 19;
+	f.video.finishNativeSeek();
+	keyboard(f)("ArrowRight");
+	expect(f.video.currentTime).toBe(20);
+	expect(f.video.ended).toBe(false);
+	expect(f.complete).not.toHaveBeenCalled();
+	f.video.finishNativeSeek();
+	expect(f.video.ended).toBe(true);
+	expect(f.video.paused).toBe(true);
+	expect(f.save).toHaveBeenLastCalledWith(20);
+	expect(f.complete).toHaveBeenCalledOnce();
+	expect(startPosition(20, 20, true)).toBe(0);
 	f.controller.dispose();
 });

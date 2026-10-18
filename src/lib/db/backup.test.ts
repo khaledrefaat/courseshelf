@@ -31,7 +31,11 @@ beforeEach(() => {
 	directory = mkdtempSync(join(base, "export-"));
 	db = new DatabaseSync(join(directory, "live.db"));
 	db.exec("PRAGMA journal_mode=WAL;");
-	for (const file of ["0001_initial.sql", "0002_missing_lessons.sql"])
+	for (const file of [
+		"0001_initial.sql",
+		"0002_missing_lessons.sql",
+		"0003_lesson_durations.sql",
+	])
 		db.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
 		);

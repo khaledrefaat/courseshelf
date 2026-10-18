@@ -180,6 +180,8 @@ export function trackPlayback(video: TrackingVideo, options: TrackingOptions) {
 	});
 	initialise();
 	return {
+		canSeek: () =>
+			!disposed && phase === "ready" && video.readyState >= 1 && !video.error,
 		flush: () => save(true),
 		updateCompleted(value: boolean) {
 			if (completed && !value) suppressed = true;

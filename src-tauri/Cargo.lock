@@ -629,6 +629,7 @@ dependencies = [
 name = "courseshelf"
 version = "0.1.0"
 dependencies = [
+ "gtk",
  "percent-encoding",
  "serde",
  "serde_json",

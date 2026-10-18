@@ -28,7 +28,10 @@ export function ManageMenu({ courseId }: { courseId: number }) {
 			<DropdownMenuTrigger
 				disabled={busy}
 				render={
-					<Button variant="outline" className="ml-auto shrink-0 bg-card" />
+					<Button
+						variant="outline"
+						className="ml-auto shrink-0 bg-card text-foreground"
+					/>
 				}
 			>
 				Manage

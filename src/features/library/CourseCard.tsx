@@ -45,7 +45,7 @@ export function CourseCard({
 	const status = courseStatus(course);
 	const percent = progressPercent(course);
 	return (
-		<article className="relative overflow-hidden rounded-lg border bg-card shadow-card transition-shadow hover:shadow-md">
+		<article className="group/course-card relative overflow-hidden rounded-lg border bg-card shadow-card transition-shadow hover:shadow-md">
 			<Link
 				to={`/course/${course.id}`}
 				className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
@@ -86,7 +86,7 @@ export function CourseCard({
 					Locate folder
 				</Button>
 			)}
-			<div className="absolute top-2 right-2 flex gap-1">
+			<div className="pointer-events-none absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover/course-card:pointer-events-auto group-hover/course-card:opacity-100 group-focus-within/course-card:pointer-events-auto group-focus-within/course-card:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100">
 				{onEditCover && (
 					<Button
 						variant="secondary"

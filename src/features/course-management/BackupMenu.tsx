@@ -73,7 +73,7 @@ export function BackupMenu() {
 							variant="outline"
 							size="icon"
 							aria-label="Library menu"
-							className="bg-card"
+							className="bg-card text-foreground"
 						/>
 					}
 				>

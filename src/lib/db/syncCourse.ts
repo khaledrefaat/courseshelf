@@ -1,4 +1,5 @@
 import * as courses from "@/lib/db/courses";
+import { invalidateDurations } from "@/lib/db/durations";
 import * as lessons from "@/lib/db/lessons";
 import { type CourseSummary, getCourseSummary } from "@/lib/db/progress";
 import { scanCourse } from "@/lib/scanner/scanCourse";
@@ -67,6 +68,7 @@ async function runSync(courseId: number): Promise<SyncResult> {
 			courseId,
 			missing.map((lesson) => lesson.id),
 		);
+		await invalidateDurations(courseId);
 		return {
 			ok: true,
 			course_id: courseId,

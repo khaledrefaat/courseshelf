@@ -1,3 +1,4 @@
+import { sectionTime } from "@/features/course/durations";
 import type { CourseOutline, OutlineLesson } from "@/lib/db/courseOutline";
 
 export function sectionName(path: string): string {
@@ -27,6 +28,7 @@ export function buildOutline(
 		lessons: rows,
 		total: rows.length,
 		completed: rows.filter((lesson) => lesson.completed).length,
+		durationLabel: sectionTime(rows),
 	}));
 	const index = active.findIndex((lesson) => lesson.id === currentId);
 	const section = sections.find((group) =>

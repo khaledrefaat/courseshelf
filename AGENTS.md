@@ -28,11 +28,14 @@ Run typecheck and lint before saying a task is done.
 ## UI rules
 - Tailwind v4: CSS-first config with `@theme`. No tailwind.config.js, no v3 syntax.
 - All design tokens live in `src/index.css`. No hardcoded hex values in components.
-- Color roles: `primary` (near-black) for main buttons; `brand` (indigo) for progress bars,
+- Color roles: `primary` (near-black in light mode, cream in dark mode) for main buttons; `brand` (plum/pink) for progress bars,
   completion checks, active lesson, percentages and links; `brand-soft` for tinted backgrounds.
   `accent` is shadcn's hover surface, never use it as the brand color.
 - Font: Inter, bundled via @fontsource-variable/inter. No CDN fonts.
-- Light theme only for now.
+- Follow the system light/dark preference, including changes while running. Theme and cover palette
+  tokens live in src/index.css. Use player/player-foreground for media surfaces, not primary.
+- Light mode uses white surfaces and neutral grays, with a solid plum header and white header text;
+  dark mode keeps its warm brown palette. Header-contained inputs and buttons set their own foreground colors.
 - No global element styles (`button`, `input`, `a`, `h1`) in CSS. Style through components and utilities.
 - shadcn components are added one at a time with `pnpm dlx shadcn@latest add <name>`.
   Use shadcn `progress` for bars (indicator uses `bg-brand`). Don't hand-build what shadcn provides.
@@ -44,7 +47,6 @@ Run typecheck and lint before saying a task is done.
 ## Design vs MVP scope
 The mockups show more than we build first. Do NOT implement yet, unless I ask:
 - Custom video controls, speed menu, CC. Use the native `<video controls>`.
-- Lesson and section durations (needs reading video metadata, separate task).
 - Drag-and-drop for covers. Use the native file picker.
 - Search beyond filtering the library by course title.
 - The "All notes for this course" tab.
@@ -89,6 +91,17 @@ and the folder-tree sidebar.
 - Production uses `tauri://localhost` on Linux. Media requests must retain the exact loopback
   Host check, token validation and absence of permissive CORS headers. Native video loads use
   no-CORS mode; do not add crossOrigin to the video element without reviewing the server.
+- Course-page shortcuts ignore editing/IME, modifiers and menus/dialogs. Native controls stay
+  enabled; handled Space is consumed through keyup/keyboard-click activation to avoid double toggles.
+- Do not add canvas-based seek-frame retention without a successful real WebKitGTK check.
+  The previous attempt produced noise/white frames and was removed; fake-media tests did not catch it.
+- Fullscreen tries the stable player wrapper first. Window fallback uses only the approved
+  `core:window:allow-set-fullscreen` and `core:window:allow-is-fullscreen`, records/restores the
+  original fullscreen state on exit/unmount, and never resizes or changes maximization.
+  On Linux, the approved read-only `actual_window_fullscreen` command reads GDK state;
+  Tao's cached isFullscreen flag alone is not reliable after OS-triggered fullscreen exits.
+  The main window starts maximized, not true fullscreen. Keyboard seeking waits for the
+  tracking controller's resume-ready state and uses normal media events, never synthetic ended.
 
 
 - Rescanning never deletes progress or notes. Lessons whose files disappeared are marked
@@ -106,6 +119,9 @@ and the folder-tree sidebar.
   or zero videos are found while lessons exist.
 
 ## Progress tracking
+- Lesson durations are cached separately from progress. Background metadata reads use the existing
+  playback server, never play or mark a lesson watched, and run at most two at a time on the course page.
+  Successful rescans invalidate cached durations; unknown/partial section totals show a dash.
 - Position saves are throttled (5s, 1s minimum change) and serialized per lesson. Never save a
   position before the resume seek is confirmed. Saves never touch `completed`.
 - Auto-complete at 90% while playing, or on ended. Undo suppresses re-completion for that visit.
@@ -118,3 +134,11 @@ and the folder-tree sidebar.
 - Never delete, move, rename or modify anything inside a course folder. Courseshelf only
   writes to its own app data (database, `covers/`). Removing a course removes database rows
   and its cover copy, never the videos.
+
+
+## Keyboard shortcuts
+- One handler on the Course page. It ignores editable elements, IME composition, modifier keys,
+  open dialogs and menus, and tab/menu/listbox roles. Seeks go through the normal media events so
+  position saving and auto-complete keep working. New shortcuts follow the same guards.
+- Fullscreen tries the wrapper element first, then the Tauri window fallback, and always restores
+  the original window state (maximized at startup).

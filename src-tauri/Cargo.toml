@@ -30,6 +30,10 @@ tiny_http = { version = "0.12", default-features = false }
 percent-encoding = "2"
 subtle = "2"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Already used transitively by Tauri; read actual GDK state rather than Tao's cached request.
+gtk = "0.18"
+
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

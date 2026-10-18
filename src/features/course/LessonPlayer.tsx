@@ -14,11 +14,20 @@ export function LessonPlayer({
 	lesson,
 	autoplay,
 	onComplete,
+	expanded,
+	bindPlayer,
+	onBeforePause,
 }: {
 	courseId: number;
 	lesson: OutlineLesson;
 	autoplay: boolean;
 	onComplete: () => Promise<void>;
+	expanded: boolean;
+	bindPlayer: (
+		video: HTMLVideoElement,
+		tracking: ReturnType<typeof trackPlayback>,
+	) => () => void;
+	onBeforePause: () => Promise<void>;
 }) {
 	const [source, setSource] = useState<string | null>(null);
 	const [savedPosition, setSavedPosition] = useState(0);
@@ -77,10 +86,12 @@ export function LessonPlayer({
 				setWatchError("Could not save playback progress. Please try again."),
 		});
 		tracking.current = controller;
+		const unbind = bindPlayer(video, controller);
 		const unregister = registerProgressFlush(controller.flush);
-		const unregisterPlayer = registerManagedPlayer(courseId, () =>
-			video.pause(),
-		);
+		const unregisterPlayer = registerManagedPlayer(courseId, () => {
+			void onBeforePause();
+			video.pause();
+		});
 		const hidden = () => {
 			if (document.hidden) controller.flush();
 		};
@@ -88,13 +99,14 @@ export function LessonPlayer({
 		return () => {
 			controller.dispose();
 			tracking.current = null;
+			unbind();
 			unregister();
 			unregisterPlayer();
 			document.removeEventListener("visibilitychange", hidden);
 		};
-	}, [source, savedPosition, lesson.id, courseId]);
+	}, [source, savedPosition, lesson.id, courseId, bindPlayer, onBeforePause]);
 	return (
-		<div>
+		<div className={expanded ? "h-full w-full" : undefined}>
 			{source ? (
 				<>
 					{/* biome-ignore lint/a11y/useMediaCaption: Local lesson player uses native controls; captions are out of scope. */}
@@ -105,7 +117,11 @@ export function LessonPlayer({
 						preload="metadata"
 						src={source}
 						aria-label={lesson.title}
-						className="aspect-video w-full rounded-lg bg-primary"
+						className={
+							expanded
+								? "h-full w-full bg-player object-contain"
+								: "aspect-video w-full rounded-lg bg-player"
+						}
 						onPlay={() => {
 							void recordPlay.current().catch(() => {
 								if (mounted.current)
@@ -120,7 +136,7 @@ export function LessonPlayer({
 							);
 						}}
 					/>
-					{resumed !== null && (
+					{resumed !== null && !expanded && (
 						<p className="mt-2 text-sm text-muted-foreground">
 							Resumed from {positionLabel(resumed)}{" "}
 							<button
@@ -133,7 +149,14 @@ export function LessonPlayer({
 						</p>
 					)}
 					{error && (
-						<p role="alert" className="mt-3 text-sm text-destructive">
+						<p
+							role="alert"
+							className={
+								expanded
+									? "absolute bottom-20 left-4 rounded bg-card p-2 text-sm text-destructive"
+									: "mt-3 text-sm text-destructive"
+							}
+						>
 							{error}
 						</p>
 					)}

@@ -62,12 +62,18 @@ sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.1.0_amd64.d
 courseshelf
 ```
 
+When testing a rebuilt package with the same installed version, use
+`sudo apt install --reinstall ./src-tauri/target/release/bundle/deb/Courseshelf_0.1.0_amd64.deb`.
+Quit the old process and stop dev before relaunching; replacing the package does
+not replace code already running in memory.
+
 The deb depends on `gstreamer1.0-libav`, `gstreamer1.0-plugins-base` and
 `gstreamer1.0-plugins-good`, in addition to Tauri's generated GTK/WebKit runtime
 dependencies. `gstreamer1.0-plugins-bad` is recommended, not mandatory; apt installs
 recommendations by default. Codec availability still depends on the actual file.
 
-Verify the launcher icon/name, 1280x800 default window and 960x640 minimum. Play a
+The window starts maximized, not fullscreen. Verify the launcher icon/name,
+1280x800 restored default size and 960x640 minimum. Play a
 previously registered course without re-picking its folder, seek in both
 directions, pause/resume, then quit/relaunch and check progress and notes. Launch
 `courseshelf` a second time: it should focus the first window instead of opening
@@ -160,6 +166,8 @@ configured. Paths below are repository-relative call sites.
 | `core:event:allow-listen` | `features/course/closeProgress.ts`: `onCloseRequested()` | Main-window close listener. |
 | `core:event:allow-unlisten` | Same listener's cleanup, `src/main.tsx` HMR dispose | Remove event listeners. |
 | `core:window:allow-destroy` | `onCloseRequested()` internally destroys after bounded flush | Main window only. |
+| `core:window:allow-set-fullscreen` | `course/windowFullscreenState.ts`: `setWindowFullscreen()` | Main window only; automatic video-fullscreen fallback and original-state restoration. No resize/maximize API. |
+| `core:window:allow-is-fullscreen` | `course/windowFullscreenState.ts`: `isFullscreen()` | Main window only; standard state query, verified against GTK on Linux because Tao's cached flag can miss OS exits. |
 | `dialog:allow-open` | Add/edit cover, add/locate folders, `course/useCourseScanCheck.ts` | User-selected files/folders; dialog extends fs scope. |
 | `dialog:allow-save` | `course-management/BackupMenu.tsx` | User-selected backup destination. |
 | `fs:deny-default` | All frontend fs operations | Plugin's protected/default deny rules, including webview data. |
@@ -191,12 +199,85 @@ Custom invokes (not plugin ACL permission names):
 | `canonicalize_course_root` | `add-course/folders.ts`, `course/useCourseScanCheck.ts` | Existing selected/granted folder only. |
 | `scan_course_folder` | `lib/scanner/scanCourse.ts` | Strict walker, persisted fs grant, skips symlinks. |
 | `validate_backup_target` | `lib/db/backup.ts` | Read-only destination validation before/after export. |
+| `actual_window_fullscreen` | `course/windowFullscreenState.ts` | Read-only main-thread GTK/GDK state query for the invoking main window; returns null on non-GTK platforms. |
 
 Unused template `greet` and opener were removed. No external-link opener remains.
-`core:default` is replaced by the five enumerated core permissions. No
+`core:default` is replaced by the seven enumerated core permissions. No
 `protocol-asset` Cargo feature, `assetProtocol` config or `$HOME/**` capability is
 enabled. Single-instance focus and debug inspector access run in Rust, so neither
 needs additional frontend window permissions.
 
 Automated checks cannot replace a real WebKitGTK run: verify dialogs, menus,
 gradients, covers, playback and the console in the debug bundle before release.
+
+## Player keyboard and fullscreen checks
+
+Known issue: the native player can briefly show black while seeking, until playback resumes.
+A canvas-based retained-frame experiment produced noise/white frames in the real WebKitGTK
+webview and was removed. The exact engine/graphics cause is not confirmed. Do not claim seamless
+seeking based on fake-media tests; verify keyboard skips and native scrubbing in the actual app.
+
+Native video controls remain enabled. Space toggles playback; Left/Right seek
+10 seconds, Up/Down change volume by 10%, `m` mutes, and `f` toggles fullscreen.
+Escape exits video fullscreen. These are Course-page-local handlers, not global
+desktop shortcuts. They ignore editable fields, IME composition, modifiers,
+tab/menu/listbox focus and visible menus/dialogs. Focused buttons/links keep their
+Space activation. Lesson navigation focuses the player without scrolling.
+
+Wrapper Fullscreen API is attempted first, including WebKit-prefixed APIs. The
+indicator remains inside wrapper fullscreen. Unsupported/rejected requests fall
+back automatically to Tauri window fullscreen and CSS-only player expansion;
+the original window fullscreen flag is recorded first and restored on exit,
+unmount/page departure and management/removal. The video is never remounted just
+to enter/exit fullscreen. Native-control fullscreen is tracked via standard and
+WebKit events; window fallback also checks resize/focus and polls while active
+because OS fullscreen exits need not emit DOM fullscreenchange events. An OS exit
+clears video fullscreen mode rather than forcing the window back into fullscreen.
+On Linux, `actual_window_fullscreen` verifies the actual GDK FULLSCREEN state,
+not Tao's cached last-requested flag. Its direct GTK dependency was already
+transitive through Tauri; it adds no new capability or window mutation.
+Window transitions wait for actual-state confirmation (bounded to about one
+second) before being considered complete, rather than trusting the IPC acknowledgement.
+
+The fallback never changes window size or maximization. Tests simulate a
+maximized window with fullscreen=false and verify it returns to that state, but
+the actual desktop compositor's maximize/restore behavior still needs manual
+verification. The configured restored/minimum sizes stay unchanged.
+
+WebKitGTK 2.52.6 is installed on the build host; its documented Fullscreen API
+setting defaults to enabled, and Wry's Linux setup does not override it. The
+agent's GTK display probe failed, so native control clicks, fullscreenEnabled /
+webkitFullscreenEnabled values, real user-gesture fullscreen promises and
+WebKit's native Space activation cannot be claimed as end-to-end tested here.
+Node/fake-media tests cover application logic only. No optional speed shortcuts
+were added: absence of a native speed menu could not be verified.
+
+After rebuilding (an already-installed deb will not update itself):
+
+1. Open a course: verify native play/pause, seek bar and volume. Click a lesson,
+   then press Space once. Repeat after Next/Previous and after focusing the native
+   video. Each physical Space press must toggle exactly once, including key release.
+2. Verify Left/Right move 10 seconds, clamp at the ends and do not scroll. Pause
+   after a seek, leave and return: progress must be retained. Seek across 90% while
+   playing, then Undo and cross it again: Undo must remain respected for the visit.
+3. Verify volume clamps at 0/100%; raising volume unmutes. Indicators must fade
+   and never intercept a mouse click on the video controls.
+4. Type Arabic/mixed text and use IME, Space and arrows in notes and dialog inputs.
+   Nothing should control playback. Test menu arrows, notes tabs and a focused
+   button's Space activation as well.
+5. Press `f`, then `f`/Escape to exit. Try the native fullscreen button, then `f`
+   and Escape; try exiting with the OS. Verify layout, paused/playing state and
+   position stay unchanged. In wrapper mode the indicator should remain visible.
+6. To exercise the automatic fallback in the debug inspector, temporarily replace
+   the player wrapper's requestFullscreen with a rejecting function (reload to
+   restore). Confirm `f` enters window fullscreen, and exit returns to a maximized
+   window, not true fullscreen or a resized window. Also navigate away/remove a
+   course while fullscreen using the app's normal actions or an inspector-driven
+   route change, and verify original window state is restored.
+
+In the inspector, check `document.fullscreenEnabled` and
+`document.webkitFullscreenEnabled`. Inspect `document.fullscreenElement` (or
+`document.webkitFullscreenElement`) after `f` and the native fullscreen button.
+A request evaluated directly in the console may fail without transient user
+activation; the actual `f` handler calls requestFullscreen directly from the
+keyboard gesture. Do not interpret a console-only rejection as lack of support.

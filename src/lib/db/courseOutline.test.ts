@@ -5,6 +5,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getCourseOutline } from "@/lib/db/courseOutline";
 import { listCourseSummaries } from "@/lib/db/courseSummaries";
 import {
+	durationRevision,
+	invalidateDurations,
+	saveDuration,
+} from "@/lib/db/durations";
+import {
 	get,
 	savePosition,
 	setCompleted,
@@ -24,14 +29,19 @@ const select = vi.fn(async (query: string, values: SQLInputValue[] = []) =>
 );
 const execute = vi.fn(async (query: string, values: SQLInputValue[] = []) => {
 	if (pause) await pause;
-	return sqlite.prepare(query).run(bindings(values));
+	const result = sqlite.prepare(query).run(bindings(values));
+	return { ...result, rowsAffected: Number(result.changes) };
 });
 vi.mock("@/lib/db/db", () => ({ getDb: async () => ({ select, execute }) }));
 beforeEach(() => {
 	sqlite = new DatabaseSync(":memory:");
 	pause = null;
 	vi.clearAllMocks();
-	for (const file of ["0001_initial.sql", "0002_missing_lessons.sql"])
+	for (const file of [
+		"0001_initial.sql",
+		"0002_missing_lessons.sql",
+		"0003_lesson_durations.sql",
+	])
 		sqlite.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
 		);
@@ -54,6 +64,23 @@ it("returns course and active lessons with completion, ordered in a single query
 		[1, true],
 	]);
 });
+it("serializes cache invalidation behind in-flight writes and rejects stale results", async () => {
+	let release!: () => void;
+	pause = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const old = saveDuration(1, 1, 90, durationRevision(1));
+	await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+	const invalidate = invalidateDurations(1);
+	release();
+	await Promise.all([old, invalidate]);
+	pause = null;
+	expect(
+		(await getCourseOutline(1))?.lessons.find((row) => row.id === 1)
+			?.duration_seconds,
+	).toBeNull();
+});
+
 it("distinguishes missing course from course with no active lessons", async () => {
 	expect(await getCourseOutline(999)).toBeNull();
 	expect((await getCourseOutline(2))?.lessons).toEqual([]);
@@ -61,6 +88,28 @@ it("distinguishes missing course from course with no active lessons", async () =
 		"UPDATE lessons SET missing_at=CURRENT_TIMESTAMP WHERE course_id=1",
 	);
 	expect((await getCourseOutline(1))?.lessons).toEqual([]);
+});
+
+it("persists duration cache without touching progress and invalidates stale metadata after rescan", async () => {
+	const revision = durationRevision(1);
+	expect(await saveDuration(1, 1, 760, revision)).toBe(true);
+	expect(
+		(await getCourseOutline(1))?.lessons.find((row) => row.id === 1)
+			?.duration_seconds,
+	).toBe(760);
+	expect(await get(1)).toMatchObject({
+		completed: true,
+		last_position_seconds: 42.5,
+	});
+	await invalidateDurations(1);
+	expect(await saveDuration(1, 1, 999, revision)).toBe(false);
+	expect(
+		(await getCourseOutline(1))?.lessons.find((row) => row.id === 1)
+			?.duration_seconds,
+	).toBeNull();
+	expect(await saveDuration(1, 3, 100, durationRevision(1))).toBe(false);
+	expect(await saveDuration(1, 999, 100, durationRevision(1))).toBe(false);
+	expect(await saveDuration(1, 1, Infinity, durationRevision(1))).toBe(false);
 });
 it("touchLastWatched creates defaults and preserves existing completion/position", async () => {
 	await touchLastWatched(1);

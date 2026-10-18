@@ -1,6 +1,7 @@
 import { Check, ChevronDown, ChevronRight, Circle } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { lessonTime } from "@/features/course/durations";
 import type { buildOutline } from "@/features/course/outline";
 import { ProgressRing } from "@/features/course/ProgressRing";
 import type { Course } from "@/lib/db/courses";
@@ -9,10 +10,12 @@ export function CourseSidebar({
 	course,
 	model,
 	lessonId,
+	onLessonSelect,
 }: {
 	course: Course;
 	model: ReturnType<typeof buildOutline>;
 	lessonId: number;
+	onLessonSelect?: () => void;
 }) {
 	const [expanded, setExpanded] = useState(
 		() => new Set(model.section ? [model.section.name] : []),
@@ -85,8 +88,20 @@ export function CourseSidebar({
 							/>
 						)}
 						<span className="min-w-0 flex-1 break-words">{section.label}</span>
-						<span className="shrink-0 text-xs font-normal text-muted-foreground">
-							{section.completed}/{section.total}
+						<span className="shrink-0 text-right text-xs font-normal text-muted-foreground">
+							<span className="block">
+								{section.completed}/{section.total}
+							</span>
+							<span
+								className="mt-1 block"
+								title={
+									section.durationLabel === "—"
+										? "Duration not available yet"
+										: "Section duration"
+								}
+							>
+								{section.durationLabel}
+							</span>
 						</span>
 					</button>
 					{expanded.has(section.name) && (
@@ -94,6 +109,16 @@ export function CourseSidebar({
 							{section.lessons.map((lesson) => (
 								<li key={lesson.id}>
 									<Link
+										onClick={(event) => {
+											if (
+												!event.ctrlKey &&
+												!event.metaKey &&
+												!event.altKey &&
+												!event.shiftKey &&
+												event.button === 0
+											)
+												onLessonSelect?.();
+										}}
 										data-lesson-id={lesson.id}
 										ref={lesson.id === lessonId ? currentRow : undefined}
 										to={`/course/${course.id}/lesson/${lesson.id}`}
@@ -111,7 +136,12 @@ export function CourseSidebar({
 												className="size-4.5 shrink-0 text-muted-foreground/40"
 											/>
 										)}
-										<span className="min-w-0 break-words">{lesson.title}</span>
+										<span className="min-w-0 flex-1 break-words">
+											{lesson.title}
+										</span>
+										<span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+											{lessonTime(lesson.duration_seconds)}
+										</span>
 										<span className="sr-only">
 											{lesson.completed ? " (completed)" : " (not completed)"}
 										</span>

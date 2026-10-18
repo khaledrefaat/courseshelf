@@ -1,6 +1,7 @@
 mod backup_target;
 mod course_scanner;
 mod video_stream;
+mod window_state;
 
 use tauri::Manager;
 
@@ -43,6 +44,14 @@ pub fn run() {
                             ),
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 3,
+                            description: "lesson_durations",
+                            sql: include_str!(
+                                "../../src/lib/db/migrations/0003_lesson_durations.sql"
+                            ),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),
@@ -51,6 +60,7 @@ pub fn run() {
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            window_state::actual_window_fullscreen,
             video_stream::register_course_roots,
             video_stream::register_course_root,
             video_stream::unregister_course_root,

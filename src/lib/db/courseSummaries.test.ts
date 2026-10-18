@@ -10,7 +10,11 @@ vi.mock("@/lib/db/db", () => ({ getDb: async () => ({ select }) }));
 
 beforeEach(() => {
 	sqlite = new DatabaseSync(":memory:");
-	for (const file of ["0001_initial.sql", "0002_missing_lessons.sql"])
+	for (const file of [
+		"0001_initial.sql",
+		"0002_missing_lessons.sql",
+		"0003_lesson_durations.sql",
+	])
 		sqlite.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
 		);

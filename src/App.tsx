@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CoursePage } from "@/features/course/CoursePage";
-import { BackupMenu } from "@/features/course-management/BackupMenu";
 import { ManagementHost } from "@/features/course-management/ManagementHost";
 import { useManagement } from "@/features/course-management/state";
 import { AddCourseDialog } from "@/features/library/add-course/AddCourseDialog";
@@ -41,13 +40,13 @@ function Shell() {
 			<NotesWarnings />
 			<ManagementHost />
 			{!courseRoute && (
-				<header className="border-b bg-card">
+				<header className="border-b bg-header text-header-foreground">
 					<div className="mx-auto flex min-h-18 max-w-360 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-10">
 						<Link
 							to="/"
 							className="flex items-center gap-2.5 text-lg font-bold"
 						>
-							<span className="flex size-7 items-center justify-center rounded-lg bg-brand text-brand-foreground">
+							<span className="flex size-7 items-center justify-center rounded-lg bg-header-foreground/15 text-header-foreground dark:bg-brand dark:text-brand-foreground">
 								<Library aria-hidden="true" className="size-4" />
 							</span>
 							Courseshelf
@@ -62,18 +61,17 @@ function Shell() {
 								placeholder="Search courses by title"
 								value={search}
 								onChange={(event) => setSearch(event.target.value)}
-								className="h-11 rounded-lg pl-10"
+								className="h-11 rounded-lg bg-header-search pl-10 text-foreground dark:bg-input/30"
 							/>
 						</div>
 						<Button
 							disabled={management.busy}
-							className="h-11 gap-2 rounded-lg px-5"
+							className="h-11 gap-2 rounded-lg bg-card px-5 text-foreground hover:bg-card/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/80"
 							onClick={() => setAdding(true)}
 						>
 							<Plus />
 							Add course
 						</Button>
-						<BackupMenu />
 					</div>
 				</header>
 			)}

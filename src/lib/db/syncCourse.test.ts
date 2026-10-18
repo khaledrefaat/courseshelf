@@ -61,7 +61,11 @@ function snapshot() {
 beforeEach(() => {
 	sqlite = new DatabaseSync(":memory:");
 	sqlite.exec("PRAGMA foreign_keys = ON");
-	for (const file of ["0001_initial.sql", "0002_missing_lessons.sql"]) {
+	for (const file of [
+		"0001_initial.sql",
+		"0002_missing_lessons.sql",
+		"0003_lesson_durations.sql",
+	]) {
 		sqlite.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
 		);
@@ -139,6 +143,7 @@ describe("syncCourse with actual SQLite queries", () => {
 		"aborts without writes when zero videos and %s DB lessons exist",
 		async (state) => {
 			const { course, first, second } = await fixture();
+			sqlite.exec("UPDATE lessons SET duration_seconds=760");
 			if (state === "already missing")
 				await lessons.markMissing(course.id, [first.id, second.id]);
 			const before = snapshot();
@@ -155,6 +160,7 @@ describe("syncCourse with actual SQLite queries", () => {
 		"does not write on %s, including partial traversal errors",
 		async (code) => {
 			const { course } = await fixture();
+			sqlite.exec("UPDATE lessons SET duration_seconds=760");
 			const before = snapshot();
 			vi.mocked(scanCourse).mockRejectedValue({
 				code,
@@ -168,6 +174,18 @@ describe("syncCourse with actual SQLite queries", () => {
 			expect(snapshot()).toBe(before);
 		},
 	);
+
+	it("invalidates cached durations only after a successful rescan", async () => {
+		const { course } = await fixture();
+		sqlite.exec("UPDATE lessons SET duration_seconds=760");
+		expect((await syncCourse(course.id)).ok).toBe(true);
+		expect(
+			sqlite
+				.prepare("SELECT duration_seconds FROM lessons")
+				.all()
+				.every((row) => row.duration_seconds === null),
+		).toBe(true);
+	});
 
 	it("allows an empty new course and rejects nonexistent courses", async () => {
 		const course = await courses.create({

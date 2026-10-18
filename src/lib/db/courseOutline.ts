@@ -10,6 +10,7 @@ export interface OutlineLesson {
 	sort_order: number;
 	completed: boolean;
 	missing_at: string | null;
+	duration_seconds?: number | null;
 }
 export interface CourseOutline {
 	course: Course;
@@ -21,6 +22,7 @@ interface OutlineRow extends Course {
 	relative_path: string;
 	sort_order: number;
 	completed: 0 | 1;
+	duration_seconds: number | null;
 }
 
 export async function getCourseOutline(
@@ -32,7 +34,7 @@ export async function getCourseOutline(
 		`
 		SELECT c.id, c.title, c.root_path, c.cover_path, c.created_at,
 			l.id AS lesson_id, l.title AS lesson_title, l.relative_path, l.sort_order,
-			COALESCE(p.completed, 0) AS completed
+			COALESCE(p.completed, 0) AS completed, l.duration_seconds
 		FROM courses c
 		LEFT JOIN lessons l ON l.course_id = c.id AND l.missing_at IS NULL
 		LEFT JOIN progress p ON p.lesson_id = l.id
@@ -56,6 +58,7 @@ export async function getCourseOutline(
 							sort_order: row.sort_order,
 							completed: row.completed === 1,
 							missing_at: null,
+							duration_seconds: row.duration_seconds,
 						},
 					],
 		),

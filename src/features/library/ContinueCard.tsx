@@ -23,14 +23,20 @@ export function ContinueCard({
 			aria-label="Continue watching"
 			className="grid gap-6 rounded-lg border bg-card p-5 shadow-card md:grid-cols-[minmax(0,480fr)_minmax(0,798fr)] md:gap-10"
 		>
-			<CourseCover
-				course={course}
-				className="flex aspect-video items-center justify-center rounded-lg"
+			<Link
+				to={`/course/${course.id}`}
+				aria-label={`View course ${course.title}`}
+				className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
 			>
-				<span className="z-10 flex size-15 items-center justify-center rounded-full bg-foreground/60 text-card">
-					<Play aria-hidden="true" className="size-7 fill-current" />
-				</span>
-			</CourseCover>
+				<CourseCover
+					course={course}
+					className="flex aspect-video items-center justify-center rounded-lg"
+				>
+					<span className="z-10 flex size-15 items-center justify-center rounded-full bg-player/60 text-player-foreground">
+						<Play aria-hidden="true" className="size-7 fill-current" />
+					</span>
+				</CourseCover>
+			</Link>
 			<div className="flex min-w-0 flex-col justify-center py-3 md:pr-5">
 				<p className="text-xs font-semibold tracking-widest text-brand">
 					CONTINUE WHERE YOU LEFT OFF

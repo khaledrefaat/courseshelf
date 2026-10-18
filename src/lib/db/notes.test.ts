@@ -25,7 +25,11 @@ beforeEach(() => {
 	sqlite = new DatabaseSync(":memory:");
 	pause = null;
 	vi.clearAllMocks();
-	for (const file of ["0001_initial.sql", "0002_missing_lessons.sql"])
+	for (const file of [
+		"0001_initial.sql",
+		"0002_missing_lessons.sql",
+		"0003_lesson_durations.sql",
+	])
 		sqlite.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
 		);
