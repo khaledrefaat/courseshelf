@@ -1,6 +1,6 @@
 # Ubuntu release
 
-Courseshelf 0.1.0 targets Ubuntu 24.04 or newer with WebKitGTK 4.1. Build on the
+Courseshelf 0.2.0 targets Ubuntu 24.04 or newer with WebKitGTK 4.1. Build on the
 oldest Ubuntu release you intend to support; newer glibc builds are not portable
 to older distributions. No signing or automatic updates are configured.
 
@@ -12,22 +12,16 @@ with the source; run the following from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm tsc --noEmit
-pnpm test
-cd src-tauri
-cargo fmt --check
-cargo check --locked
-cargo clippy --locked
-cargo test --locked
-cd ..
-pnpm tauri icon design/icon-source.png
-cp src-tauri/icons/32x32.png public/favicon.png
+pnpm check
+pnpm check:rust
 pnpm tauri build --debug --bundles deb
 pnpm tauri build --bundles deb
 ```
 
-Run Biome on the files changed for a release (`pnpm exec biome check <files>`),
-or `pnpm lint` for a full-tree check. Debug packages are under
+Node is pinned in `.nvmrc`; pnpm is pinned by `packageManager` in package.json.
+`pnpm lint` checks the whole repository, including Tailwind directives.
+Safe mechanical fixes are `pnpm lint:fix`; formatting only is `pnpm format`.
+Debug packages are under
 `src-tauri/target/debug/bundle/deb/`; normal releases are under
 `src-tauri/target/release/bundle/deb/`. Both have the same package name/version:
 do not confuse the two. The normal release has no devtools feature enabled.
@@ -36,8 +30,20 @@ The debug bundle uses the **production** CSP and opens its inspector at startup.
 You can run `src-tauri/target/debug/courseshelf` directly to inspect it without
 installing a package. Quit all other copies first: dev/debug/release use the same
 database and single-instance identity. Use the console to check CSP errors while
-opening dialogs/menus, choosing a cover, playing/seeking, writing notes and saving
-a backup. Do not paste or share media URLs: they contain a session secret.
+opening dialogs/menus, choosing a cover, playing/seeking and writing notes.
+The backup menu is intentionally hidden, so use the documented manual backup
+procedure instead. Do not paste or share media URLs: they contain a session secret.
+
+Only regenerate icons when the source artwork changes:
+
+```sh
+pnpm tauri icon design/icon-source.png
+cp src-tauri/icons/32x32.png public/favicon.png
+```
+
+CI in `.github/workflows/ci.yml` checks pushes and pull requests. Frontend and Rust
+jobs run separately on Ubuntu 24.04, cache pnpm/Cargo, and have read-only repository
+permissions. CI does not build/publish packages or deploy anything.
 
 An optional AppImage can be attempted after the release build:
 
@@ -58,12 +64,12 @@ frontend chunk are non-fatal; they are not CSP violations.
 Replace the filename with the generated release deb (architecture may differ):
 
 ```sh
-sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.1.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.2.0_amd64.deb
 courseshelf
 ```
 
 When testing a rebuilt package with the same installed version, use
-`sudo apt install --reinstall ./src-tauri/target/release/bundle/deb/Courseshelf_0.1.0_amd64.deb`.
+`sudo apt install --reinstall ./src-tauri/target/release/bundle/deb/Courseshelf_0.2.0_amd64.deb`.
 Quit the old process and stop dev before relaunching; replacing the package does
 not replace code already running in memory.
 
@@ -83,8 +89,8 @@ it is not a cross-user or cross-session database lock.
 Inspect metadata without installing:
 
 ```sh
-dpkg-deb --info ./src-tauri/target/release/bundle/deb/Courseshelf_0.1.0_amd64.deb
-dpkg-deb --contents ./src-tauri/target/release/bundle/deb/Courseshelf_0.1.0_amd64.deb
+dpkg-deb --info ./src-tauri/target/release/bundle/deb/Courseshelf_0.2.0_amd64.deb
+dpkg-deb --contents ./src-tauri/target/release/bundle/deb/Courseshelf_0.2.0_amd64.deb
 ```
 
 Uninstall the package:
@@ -110,7 +116,8 @@ not move any data. Default locations on Ubuntu:
 `XDG_CONFIG_HOME` and `XDG_DATA_HOME` override those base directories. Cover paths
 in the database are absolute; moving app data manually does not rewrite them.
 
-Before upgrades, use **Back up data...**. The consistent SQLite export contains
+Before upgrades, make a backup using the manual procedure (the backup menu is hidden).
+The consistent SQLite export contains
 progress, notes and course paths, but not covers, videos or folder grants.
 See [Back up and restore](backup-and-restore.md) for integrity checks and the
 manual restore procedure. Always quit every app copy before restoring.
@@ -168,7 +175,7 @@ configured. Paths below are repository-relative call sites.
 | `core:window:allow-destroy` | `onCloseRequested()` internally destroys after bounded flush | Main window only. |
 | `core:window:allow-set-fullscreen` | `course/windowFullscreenState.ts`: `setWindowFullscreen()` | Main window only; automatic video-fullscreen fallback and original-state restoration. No resize/maximize API. |
 | `core:window:allow-is-fullscreen` | `course/windowFullscreenState.ts`: `isFullscreen()` | Main window only; standard state query, verified against GTK on Linux because Tao's cached flag can miss OS exits. |
-| `dialog:allow-open` | Add/edit cover, add/locate folders, `course/useCourseScanCheck.ts` | User-selected files/folders; dialog extends fs scope. |
+| `dialog:allow-open` | Add/edit cover, add/locate folders | User-selected files/folders; dialog extends fs scope. |
 | `dialog:allow-save` | `course-management/BackupMenu.tsx` | User-selected backup destination. |
 | `fs:deny-default` | All frontend fs operations | Plugin's protected/default deny rules, including webview data. |
 | `fs:allow-read-file` | `add-course/covers.ts:readCover`, `library/coverCache.ts` | `$APPDATA/covers/**` plus picker/restored grants. |
@@ -196,7 +203,7 @@ Custom invokes (not plugin ACL permission names):
 | `unregister_course_root` | `lib/playback.ts` removal | Removes only in-memory registration. |
 | `get_media_session` | `lib/playback.ts` | Local frontend obtains loopback session details. |
 | `get_lesson_url` | `lib/playback.ts` | Registered course, safe video path; no traversal/symlinks. |
-| `canonicalize_course_root` | `add-course/folders.ts`, `course/useCourseScanCheck.ts` | Existing selected/granted folder only. |
+| `canonicalize_course_root` | `add-course/folders.ts` | Existing selected/granted folder only. |
 | `scan_course_folder` | `lib/scanner/scanCourse.ts` | Strict walker, persisted fs grant, skips symlinks. |
 | `validate_backup_target` | `lib/db/backup.ts` | Read-only destination validation before/after export. |
 | `actual_window_fullscreen` | `course/windowFullscreenState.ts` | Read-only main-thread GTK/GDK state query for the invoking main window; returns null on non-GTK platforms. |
@@ -212,7 +219,43 @@ gradients, covers, playback and the console in the debug bundle before release.
 
 ## Player keyboard and fullscreen checks
 
-Known issue: the native player can briefly show black while seeking, until playback resumes.
+On Linux, the first startup operation in `src-tauri/src/main.rs` sets
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` **only when the variable is absent**.
+It runs before `courseshelf_lib::run()`, any application threads, the Tauri builder
+and webview creation. No shell/system settings are modified; non-Linux builds
+compile out the step. Both dev and packaged builds use the same default.
+
+The user confirmed this workaround fixes black/white seek frames on the affected
+machine. It disables WebKitGTK's faster DMABUF rendering path and can trade
+performance for compatibility. Existing environment values are never overwritten,
+including `0`, empty and non-Unicode values (`var_os` checks presence, not string parsing).
+
+Override it for one launch:
+
+```sh
+# Quit every existing copy before either command (single-instance).
+WEBKIT_DISABLE_DMABUF_RENDERER=0 courseshelf
+# Or, for a development run:
+WEBKIT_DISABLE_DMABUF_RENDERER=0 pnpm tauri dev
+# Restore Courseshelf's default (unset only for this child process):
+env -u WEBKIT_DISABLE_DMABUF_RENDERER courseshelf
+```
+
+With `0`, Courseshelf does not force DMABUF off; WebKit's own driver/renderer
+checks still apply, so this does not guarantee hardware acceleration is active.
+Unsetting the variable restores the app's default `1`; it is not an opt-out.
+See [Tauri's Linux graphics troubleshooting](https://v2.tauri.app/develop/debug/linux-graphics/).
+
+Rust 2024 makes `std::env::set_var` unsafe because environment mutation may race
+with other threads, including native-library readers. The small documented
+`unsafe` block stays inline at the very start of `main`, while application startup
+is still single-threaded, **not** in a Tauri setup hook or parallel Rust test.
+This placement is the safety invariant; a mutex around later environment writes
+would not protect native readers. See [Rust's set_var safety contract](https://doc.rust-lang.org/std/env/fn.set_var.html).
+
+After rebuilding, fully quit the previous process, install the new deb (use
+`--reinstall` if it is still version 0.2.0), then launch `courseshelf` normally.
+Test seeking without a flag, and compare with the explicit `0` override above.
 A canvas-based retained-frame experiment produced noise/white frames in the real WebKitGTK
 webview and was removed. The exact engine/graphics cause is not confirmed. Do not claim seamless
 seeking based on fake-media tests; verify keyboard skips and native scrubbing in the actual app.

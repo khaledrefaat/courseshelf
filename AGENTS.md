@@ -6,9 +6,14 @@ Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure
 
 ## Commands
 - Dev: `pnpm tauri dev`
-- Typecheck: `pnpm tsc --noEmit`
-- Lint/format: `pnpm lint` (Biome). Auto-fix: `pnpm lint:fix`
-- Rust: `cd src-tauri && cargo fmt --check && cargo clippy`
+- Typecheck: `pnpm typecheck`
+- Lint: `pnpm lint` (Biome, repo-wide). Safe fixes: `pnpm lint:fix`
+- Format: `pnpm format` (Biome, repo-wide formatting only)
+- Tests: `pnpm test`
+- Frontend gates: `pnpm check` (typecheck + lint + tests)
+- Rust gates: `pnpm check:rust` (fmt check, clippy all targets with warnings denied, tests)
+- Release deb: `pnpm tauri build --bundles deb`
+- Toolchain: Node version in .nvmrc, pnpm version in package.json's packageManager.
 Run typecheck and lint before saying a task is done.
 
 ## Architecture
@@ -49,7 +54,6 @@ The mockups show more than we build first. Do NOT implement yet, unless I ask:
 - Custom video controls, speed menu, CC. Use the native `<video controls>`.
 - Drag-and-drop for covers. Use the native file picker.
 - Search beyond filtering the library by course title.
-- The "All notes for this course" tab.
 Build as custom components (not in shadcn): the circular progress ring in the course sidebar
 and the folder-tree sidebar.
 
@@ -82,6 +86,9 @@ and the folder-tree sidebar.
 
 
 ## Video playback
+- Linux renderer default is set inline at the start of main, before threads or Tauri/GTK:
+  WEBKIT_DISABLE_DMABUF_RENDERER=1 only if var_os reports it absent. Preserve any existing value.
+  Keep the documented unsafe environment mutation here, never in setup or parallel tests.
 - WebKitGTK on Linux rejects Tauri's `asset:` scheme for media. Playback uses a localhost
   streaming server in `src-tauri` (127.0.0.1, random port, session token per app launch,
   registered course roots, byte-range support). Don't switch back to `convertFileSrc` or the asset protocol.

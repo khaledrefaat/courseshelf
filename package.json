@@ -1,11 +1,17 @@
 {
 	"name": "courseshelf",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.2.0",
+	"packageManager": "pnpm@11.17.0",
 	"type": "module",
 	"scripts": {
 		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"check": "pnpm typecheck && pnpm lint && pnpm test",
+		"check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --locked",
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"preview": "vite preview",

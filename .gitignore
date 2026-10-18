@@ -11,6 +11,21 @@ node_modules
 dist
 dist-ssr
 *.local
+/src-tauri/target/
+
+# Local configuration, credentials and SQLite data/backups
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.backup
+*.bak
 
 # Editor directories and files
 .vscode/*

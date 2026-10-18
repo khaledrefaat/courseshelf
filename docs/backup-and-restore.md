@@ -2,24 +2,41 @@
 
 ## Back up
 
-Open the Library menu beside **Add course**, then **Back up data...**. Pick a new
-`.db` filename. Existing files (including empty ones) are rejected, even if the
-native save dialog offers to replace them. Save outside course folders and app
-data/config folders. Courseshelf never writes a backup inside a course folder.
+The Library backup menu is **intentionally hidden** in the current app. The export
+helper, validation and tests remain, but there is no exposed backup button.
+If the `sqlite3` CLI is available, use the following manual procedure instead.
+It is an optional maintenance tool, not a Courseshelf runtime dependency.
 
-The export uses SQLite `VACUUM INTO`, not a copy of the live database file, so
-it is a consistent snapshot even with an open database in WAL mode. Pending
-progress and notes saves are flushed best-effort first. Failed unsaved drafts
-are not guaranteed to be included: resolve their warnings before backing up.
+1. Resolve any note/progress save warnings, quit Courseshelf fully and stop dev.
+   Unsaved failed drafts are not guaranteed to be present in a database backup.
+2. Locate the existing database using the paths below.
+3. Choose a **new, nonexistent** backup filename in a folder you own, outside
+   course folders and app data/config folders. Do not overwrite an older backup.
+4. Replace both absolute paths in this command (do not paste the example unchanged):
 
-The app verifies that the resulting file exists, is non-empty, and has the
-SQLite database header. For a full integrity check, run:
+```sh
+sqlite3 -readonly '/absolute/path/to/courseshelf.db' "VACUUM INTO '/absolute/path/to/courseshelf-backup-YYYY-MM-DD.db';"
+```
+
+The read-only source open rejects a mistyped/missing source instead of creating an
+empty database. SQLite `VACUUM INTO` leaves the source unchanged and creates a
+consistent snapshot, including when the source uses WAL. Do not copy only a live
+`.db` file while ignoring its WAL.
+
+Unlike the dormant in-app helper, the CLI command does not perform Courseshelf's
+target-path safety checks and SQLite can reuse an existing empty target. You must
+choose a new destination yourself. Escape any `'` in the SQL destination path as
+`''`. See [SQLite's VACUUM INTO documentation](https://www.sqlite.org/lang_vacuum.html).
+
+Verify that the output exists and is non-empty, then run a full integrity check:
 
 ```sh
 sqlite3 -readonly '/absolute/path/to/backup.db' 'PRAGMA integrity_check;'
 ```
 
-The result must be `ok`. Interrupted exports may leave incomplete files; do not
+The result must be `ok`. The in-app helper additionally checks the SQLite file
+header; the manual integrity check validates that the CLI output opens as a database.
+Interrupted exports may leave incomplete files; do not
 use those. Choose a new filename to retry. No backup file is silently overwritten
 or automatically deleted.
 

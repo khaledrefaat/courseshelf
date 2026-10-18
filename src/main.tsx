@@ -19,11 +19,9 @@ if (import.meta.hot)
 		void closeListener.then((unlisten) => unlisten?.());
 	});
 
-void initializePlayback()
-	.then((results) => console.log("[playback registration]", results))
-	.catch((error: unknown) =>
-		console.error("[playback registration]", playbackErrorMessage(error)),
-	);
+void initializePlayback().catch((error: unknown) =>
+	console.error("[playback registration]", playbackErrorMessage(error)),
+);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>

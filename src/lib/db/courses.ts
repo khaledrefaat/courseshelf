@@ -56,15 +56,6 @@ async function deleteCourse(id: number): Promise<void> {
 	await db.execute("DELETE FROM courses WHERE id = $1", [id]);
 }
 
-export async function getByRootPath(rootPath: string): Promise<Course | null> {
-	const db = await getDb();
-	const [row] = await db.select<Course[]>(
-		"SELECT * FROM courses WHERE root_path = $1",
-		[rootPath],
-	);
-	return row ?? null;
-}
-
 export { deleteCourse as delete };
 
 // The caller supplies a cover already copied to the app data directory.

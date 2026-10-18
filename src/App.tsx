@@ -1,5 +1,5 @@
 import { Library, Plus, Search } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import {
 	HashRouter,
 	Link,
@@ -16,10 +16,6 @@ import { useManagement } from "@/features/course-management/state";
 import { AddCourseDialog } from "@/features/library/add-course/AddCourseDialog";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { NotesWarnings } from "@/features/notes/NotesWarnings";
-
-const VideoSpike = import.meta.env.DEV
-	? lazy(() => import("@/features/course/VideoSpike"))
-	: null;
 
 function Shell() {
 	const management = useManagement();
@@ -95,45 +91,36 @@ function Shell() {
 					}}
 				/>
 			)}
-			<Suspense
-				fallback={
-					<p className="p-10" role="status">
-						Loading…
-					</p>
-				}
-			>
-				<Routes>
-					<Route
-						path="/"
-						element={
-							<LibraryPage
-								key={revision}
-								search={search}
-								onAddCourse={() => {
-									if (!management.busy) setAdding(true);
-								}}
-							/>
-						}
-					/>
-					<Route path="/course/:courseId" element={<CoursePage />} />
-					<Route
-						path="/course/:courseId/lesson/:lessonId"
-						element={<CoursePage />}
-					/>
-					{VideoSpike && <Route path="/dev/spike" element={<VideoSpike />} />}
-					<Route
-						path="*"
-						element={
-							<main className="p-10">
-								Page not found.{" "}
-								<Link to="/" className="text-brand">
-									Go to Library
-								</Link>
-							</main>
-						}
-					/>
-				</Routes>
-			</Suspense>
+			<Routes>
+				<Route
+					path="/"
+					element={
+						<LibraryPage
+							key={revision}
+							search={search}
+							onAddCourse={() => {
+								if (!management.busy) setAdding(true);
+							}}
+						/>
+					}
+				/>
+				<Route path="/course/:courseId" element={<CoursePage />} />
+				<Route
+					path="/course/:courseId/lesson/:lessonId"
+					element={<CoursePage />}
+				/>
+				<Route
+					path="*"
+					element={
+						<main className="p-10">
+							Page not found.{" "}
+							<Link to="/" className="text-brand">
+								Go to Library
+							</Link>
+						</main>
+					}
+				/>
+			</Routes>
 		</div>
 	);
 }
