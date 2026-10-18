@@ -44,7 +44,8 @@ export function buildCourseStructure(
 			const filename = segments[segments.length - 1];
 			if (
 				!segments.some((segment) => !segment || segment.startsWith(".")) &&
-				!/^(thumbs\.db|desktop\.ini)$/i.test(filename)
+				!/^(thumbs\.db|desktop\.ini)$/i.test(filename) &&
+				!/\.(srt|vtt)$/i.test(filename)
 			) {
 				const extension = filename.match(/\.([^.]+)$/)?.[1].toLowerCase();
 				const key = extension ? `.${extension}` : "(no extension)";

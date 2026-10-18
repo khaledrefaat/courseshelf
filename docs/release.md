@@ -133,6 +133,7 @@ Custom invokes (not plugin ACL permission names):
 
 | Command | Frontend call site | Backend restriction |
 | --- | --- | --- |
+| `get_lesson_subtitle` | `course/useSubtitles.ts` | Read-only matching VTT/SRT beside a validated registered lesson, persisted fs scope, no links/reparse points; maximum 2 MB. No HTTP route or new permission. |
 | `frontend_ready` | `components/StartupReady.tsx` after shell mount | Main window only; Windows reveal-once startup gate, no-op on other platforms. |
 | `register_course_roots` | `lib/playback.ts` startup | Canonical roots inside persisted fs scope. |
 | `register_course_root` | `lib/playback.ts` add/locate | Same root validation. |

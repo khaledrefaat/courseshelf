@@ -77,6 +77,17 @@ describe("buildCourseStructure", () => {
 		expect(result.ignored_count).toBe(ignored.length);
 		expect(result.lessons).toHaveLength(3);
 	});
+	it("counts subtitle sidecars as non-lessons without warning they are unsupported", () => {
+		const result = buildCourseStructure([
+			"lesson.mp4",
+			"lesson.en.vtt",
+			"lesson.srt",
+			"notes.pdf",
+		]);
+		expect(result.lessons).toHaveLength(1);
+		expect(result.ignored_count).toBe(3);
+		expect(result.ignored_by_extension).toEqual({ ".pdf": 1 });
+	});
 	it.each([
 		["01 - Welcome.mp4", "Welcome"],
 		["01. Overview.m4v", "Overview"],

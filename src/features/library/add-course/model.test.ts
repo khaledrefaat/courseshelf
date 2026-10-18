@@ -48,7 +48,6 @@ describe("add course pure functions", () => {
 		expect(scan.ignored_count).toBe(8);
 		expect(scan.ignored_by_extension).toEqual({
 			".mkv": 2,
-			".srt": 1,
 			"(no extension)": 1,
 		});
 		expect(formatIgnored({ ".mkv": 12, ".srt": 1, ".pdf": 0 })).toEqual([

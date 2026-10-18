@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { registerProgressFlush } from "@/features/course/closeProgress";
 import { NextLessonCountdown } from "@/features/course/NextLessonCountdown";
 import { trackPlayback } from "@/features/course/playbackTracking";
 import { firstPlay, playQuietly } from "@/features/course/progressActions";
 import { positionLabel } from "@/features/course/trackingRules";
 import { useAutoAdvance } from "@/features/course/useAutoAdvance";
+import { useSubtitles } from "@/features/course/useSubtitles";
 import { registerManagedPlayer } from "@/features/course-management/state";
 import type { OutlineLesson } from "@/lib/db/courseOutline";
 import { get, savePosition } from "@/lib/db/progress";
@@ -43,6 +45,12 @@ export function LessonPlayer({
 	const [savedPosition, setSavedPosition] = useState(0);
 	const [resumed, setResumed] = useState<number | null>(null);
 	const videoRef = useRef<HTMLVideoElement>(null);
+	const subtitles = useSubtitles(
+		courseId,
+		lesson.relative_path,
+		source,
+		videoRef,
+	);
 	const tracking = useRef<ReturnType<typeof trackPlayback> | null>(null);
 	const completeRef = useRef(onComplete);
 	const [error, setError] = useState<string | null>(null);
@@ -129,7 +137,7 @@ export function LessonPlayer({
 			{source ? (
 				<>
 					<div className={expanded ? "relative h-full w-full" : "relative"}>
-						{/* biome-ignore lint/a11y/useMediaCaption: Local lesson player uses native controls; captions are out of scope. */}
+						{/* biome-ignore lint/a11y/useMediaCaption: useSubtitles installs native text tracks with addTextTrack/VTTCue, without cross-origin track URLs. */}
 						<video
 							ref={videoRef}
 							key={lesson.id}
@@ -139,8 +147,8 @@ export function LessonPlayer({
 							aria-label={lesson.title}
 							className={
 								expanded
-									? "h-full w-full bg-player object-contain"
-									: "block aspect-video w-full rounded-lg bg-player"
+									? "lesson-video h-full w-full bg-player object-contain"
+									: "lesson-video block aspect-video w-full rounded-lg bg-player"
 							}
 							onPlay={() => {
 								void recordPlay.current().catch(() => {
@@ -156,6 +164,19 @@ export function LessonPlayer({
 								);
 							}}
 						/>
+						{subtitles.available && !autoAdvance.state && (
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								aria-pressed={subtitles.enabled}
+								title={subtitles.filename}
+								onClick={subtitles.toggle}
+								className="absolute right-3 top-3 z-10 border-player-foreground/30 bg-player/80 text-player-foreground hover:bg-player hover:text-player-foreground"
+							>
+								Subtitles {subtitles.enabled ? "On" : "Off"}
+							</Button>
+						)}
 						{autoAdvance.state && nextLesson && (
 							<NextLessonCountdown
 								state={autoAdvance.state}
@@ -164,6 +185,11 @@ export function LessonPlayer({
 							/>
 						)}
 					</div>
+					{subtitles.error && (
+						<p role="alert" className="mt-2 text-sm text-destructive">
+							Subtitles unavailable: {subtitles.error}
+						</p>
+					)}
 					{autoAdvance.error && (
 						<p role="alert" className="mt-3 text-sm text-destructive">
 							{autoAdvance.error}

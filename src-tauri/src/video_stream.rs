@@ -186,6 +186,37 @@ impl VideoStream {
         ))
     }
 
+    // Read-only IPC discovery uses the same registered-root and lesson validation
+    // as playback. This does not add any HTTP routes or permitted media types.
+    pub(crate) fn lesson_directory(
+        &self,
+        course_id: i64,
+        relative_path: &str,
+    ) -> Result<PathBuf, MediaError> {
+        resolve_lesson(&self.shared, course_id, relative_path)?;
+        let roots = self
+            .shared
+            .roots
+            .read()
+            .map_err(|_| failure("SERVER_ERROR", "Root registry unavailable"))?;
+        let root = roots
+            .get(&course_id)
+            .ok_or_else(|| failure("COURSE_NOT_REGISTERED", "Course folder is not registered"))?;
+        check_components(root, relative_path)?;
+        if fs::canonicalize(root).ok().as_ref() != Some(root) {
+            return Err(failure(
+                "INVALID_PATH",
+                "Course root changed; register it again",
+            ));
+        }
+        let directory = root
+            .join(relative_path)
+            .parent()
+            .ok_or_else(|| failure("INVALID_PATH", "Lesson folder unavailable"))?
+            .to_path_buf();
+        Ok(directory)
+    }
+
     fn session(&self) -> MediaSession {
         MediaSession {
             base_url: format!("http://{}", self.address),

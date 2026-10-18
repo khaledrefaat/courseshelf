@@ -171,3 +171,8 @@
 		@apply font-sans;
 	}
 }
+
+/* Keep native captions compact in both the course layout and fullscreen. */
+.lesson-video::cue {
+	font-size: clamp(16px, 1.6vw, 28px);
+}

@@ -92,6 +92,10 @@ and the folder-tree sidebar.
 
 
 ## Video playback
+- Matching VTT/SRT sidecars are read through `get_lesson_subtitle` inside registered,
+  granted course folders, never through HTTP/asset URLs. Native text-track cues render
+  basic timed text; VTT styles/regions are not applied. Keep native controls, On/Off
+  preference, bounded reads, no-links checks and lesson-change cancellation intact.
 - Linux renderer default is set inline at the start of main, before threads or Tauri/GTK:
   WEBKIT_DISABLE_DMABUF_RENDERER=1 only if var_os reports it absent. Preserve any existing value.
   Keep the documented unsafe environment mutation here, never in setup or parallel tests.

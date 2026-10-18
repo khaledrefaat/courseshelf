@@ -2,6 +2,7 @@ mod backup_target;
 mod course_scanner;
 mod fs_links;
 mod startup;
+mod subtitles;
 mod video_stream;
 mod window_state;
 
@@ -77,6 +78,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             startup::frontend_ready,
+            subtitles::get_lesson_subtitle,
             window_state::actual_window_fullscreen,
             video_stream::register_course_roots,
             video_stream::register_course_root,

@@ -5,6 +5,37 @@ use tiny_http::TestRequest;
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
+fn subtitle_directory_uses_registered_lesson_validation_not_arbitrary_paths() {
+    let fixture = Fixture::new();
+    fixture.file("قسم # % +/lesson.mp4");
+    assert_eq!(
+        fixture
+            .media
+            .lesson_directory(1, "قسم # % +/lesson.mp4")
+            .unwrap(),
+        fixture.root.join("قسم # % +")
+    );
+    assert!(fixture.media.lesson_directory(9, "lesson.mp4").is_err());
+    for path in [
+        "../lesson.mp4",
+        "/lesson.mp4",
+        "C:/lesson.mp4",
+        "dir\\lesson.mp4",
+        "lesson.srt",
+        "missing.mp4",
+    ] {
+        assert!(fixture.media.lesson_directory(1, path).is_err());
+    }
+    fixture.media.unregister(1).unwrap();
+    assert!(
+        fixture
+            .media
+            .lesson_directory(1, "قسم # % +/lesson.mp4")
+            .is_err()
+    );
+}
+
+#[test]
 fn unregister_is_idempotent_revokes_old_urls_and_keeps_other_courses() {
     let fixture = Fixture::new();
     fixture.file("lesson.mp4");

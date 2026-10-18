@@ -85,6 +85,26 @@ manual instructions. Backups do not include videos or cover images.
 
 ## Development
 
+### Subtitles (source builds)
+
+Place a matching `.vtt` or `.srt` beside the lesson video, for example
+`Introduction.mp4` and `Introduction.en.vtt`. Exact filename matches take
+priority over English suffixes (`.en`, `.en-US`, `.en-GB`, `.english`), with VTT
+preferred within each group. Matching filenames are case-sensitive; extensions
+and language suffixes are not. No rescan is needed: subtitles are discovered
+when opening a lesson.
+
+Subtitles start on unless you previously switched them off. Use **Subtitles
+On/Off** at the top-right of the player; the preference persists across restarts.
+The button is hidden when no matching sidecar exists. Native controls remain in
+place. Embedded subtitles and automatic transcription are not part of this feature.
+Basic timed text is supported; VTT styles/regions are ignored. Files must be UTF-8
+or BOM-marked UTF-16, at most 2 MB and 10,000 cues. Invalid subtitles show a message
+without preventing video playback. Existing published installers do not gain this
+feature until rebuilt and released.
+
+### Development setup
+
 Use Node **22.19.0** (.nvmrc), pnpm **11.17.0** (packageManager), a stable Rust
 toolchain with rustfmt and Clippy, and the
 [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform.
