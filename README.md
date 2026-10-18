@@ -1,161 +1,119 @@
 # Courseshelf
 
-A personal Ubuntu desktop app for following local video courses. Videos stay in
-their original folders; Courseshelf stores your progress, notes and cover copies locally.
+**Your personal library for offline video courses.**
 
-## Features
+Courseshelf brings progress tracking, saved playback positions and notes to the
+courses you already have on your computer. Pick a course folder, start watching,
+and see how far you've come. Your videos stay where they are.
 
-- Library with title search, status filters, sorting and a Continue card.
-- Add courses from folders containing MP4, M4V and WebM videos.
-- Sections derived from folders, natural lesson ordering and cached durations.
-- Native video controls, keyboard shortcuts and fullscreen.
-- After a lesson ends, a five-second countdown opens the next lesson. Cancel with the button or S.
-- Saved playback positions, resume, manual completion and automatic completion.
-- Plain-text per-lesson notes with autosave, plus all notes for a course.
-- Edit titles/covers, rescan, relocate and remove courses without deleting videos.
-- Light/dark appearance follows the system theme.
+## Why I built it
 
-## Screenshots
+I like watching courses offline, but a folder full of videos doesn't tell me where
+I left off, how much I've watched, or which courses I've finished.
 
-These are labeled placeholders, not screenshots of the app. See
-[capture instructions](docs/screenshots/README.md) to replace them with real images.
+On learning platforms, that progress is visible. I can see completed lessons,
+watch a progress bar move forward, and feel that I'm getting somewhere. With
+offline courses, I missed that feeling. Even when I was learning, it was harder
+to see my progress and keep going.
 
-![Library screenshot placeholder](docs/screenshots/library.svg)
-![Course page screenshot placeholder](docs/screenshots/course-page.svg)
-![Add course dialog screenshot placeholder](docs/screenshots/add-course-dialog.svg)
+That's why I built Courseshelf: a personal course library that makes offline
+learning feel more organized and rewarding. I built it for myself, and I'm
+sharing it with friends and anyone else who likes learning this way.
 
-## Install on Ubuntu
+## Download
 
-Target: Ubuntu 24.04 with WebKitGTK 4.1. Download an existing release deb if one
-has been provided, or build it locally using [the release guide](docs/release.md).
-No automatic update or download service is configured.
+Version **0.2.0** is available as an early preview for Windows and Ubuntu. I've
+tested the app on both; feedback from other machines is welcome.
 
-Quit all running copies before installing or upgrading:
+| Platform | Installer | Release notes |
+| --- | --- | --- |
+| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0/Courseshelf_0.2.0_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0) |
+| Ubuntu 24.04 x64 | [Download for Ubuntu (.deb)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0-ubuntu/Courseshelf_0.2.0_amd64.deb) | [Ubuntu preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-ubuntu) |
 
-```sh
+No Rust or development tools are needed to install either version.
+
+### Windows
+
+Download and run Courseshelf_0.2.0_x64-setup.exe. The installer may need internet
+access to install Microsoft Edge WebView2 if it's missing.
+
+The installer is unsigned, so Windows may show an Unknown publisher or SmartScreen
+warning. Some security policies may block unsigned apps; don't disable Windows
+security globally to install it.
+
+### Ubuntu
+
+Download the .deb, open a terminal in its folder, and run:
+
+~~~sh
 sudo apt install ./Courseshelf_0.2.0_amd64.deb
-courseshelf
-```
+~~~
 
-Adjust the path to the downloaded/built file. Apt installs the declared GTK/WebKit
-and GStreamer dependencies. For a rebuilt package with the same version, add
-`--reinstall`. Uninstall with `sudo apt remove courseshelf`; user data is retained.
+Launch Courseshelf from your applications menu. Apt installs the required runtime
+dependencies and may need internet access. Quit any running copy before updating.
 
-**Linux renderer compatibility:** Courseshelf defaults
-`WEBKIT_DISABLE_DMABUF_RENDERER=1` on Linux, before Tauri creates the webview.
-This avoids the black/white seek frames observed on the affected development
-machine, at the cost of WebKitGTK's faster DMABUF rendering path. Normal launches
-need no flag.
+## What you can do
 
-Any existing environment value is preserved, including `0` or an empty value.
-To opt out of the workaround for one launch and let WebKit choose its default path:
+- **Build your own shelf:** add folders of MP4, M4V and WebM lessons, with editable
+  course titles and covers. Folder names become sections, with natural ordering.
+- **See your progress:** completed lessons, course percentages, status filters and
+  a Continue card make it easy to see what's started and what's finished.
+- **Pick up where you stopped:** playback positions are saved automatically.
+- **Keep notes beside the lesson:** plain-text notes autosave, with an all-notes
+  view for each course.
+- **Watch comfortably:** native video controls, keyboard shortcuts, fullscreen and
+  a five-second next-lesson countdown you can cancel with S.
+- **Keep your library up to date:** rescan or relocate a course without losing
+  matching lessons' progress and notes. Missing files are marked, not forgotten.
+- **Make it feel at home:** light and dark colors follow your system theme.
 
-```sh
-WEBKIT_DISABLE_DMABUF_RENDERER=0 courseshelf
-```
+## Getting started
 
-Quit every other copy first (the app is single-instance). To restore the app's
-default for one launch, use `env -u WEBKIT_DISABLE_DMABUF_RENDERER courseshelf`.
-Nothing is changed in your shell profile or system environment. Non-Linux
-platforms are unaffected.
-See [release troubleshooting](docs/release.md#player-keyboard-and-fullscreen-checks).
+1. Click **Add course** and browse to a folder containing video lessons.
+2. Check the detected lessons, edit the title or choose a cover, then add it.
+3. Open the course and start watching. Progress, positions and notes are saved locally.
+4. Return to your library to continue where you left off.
 
-## Windows test installer
+There are no accounts, uploads or required cloud services. Courseshelf does not
+download courses: you supply your own local videos. Removing a course from the
+library removes its Courseshelf data, not the video files on disk.
 
-An optional, manually triggered GitHub Actions workflow builds an unsigned x64
-setup `.exe` on a Windows runner. No Rust/Visual Studio installation is needed on
-your own Windows computer to test it. Download the artifact, extract it and run
-the installer; WebView2 may require an internet download if not already installed.
-Windows runtime behavior still needs verification before sharing with friends.
-See [Windows build, installation and test steps](docs/windows.md).
-
-## How it works
-
-The native directory picker grants access to a selected folder. A strict Rust
-walker canonicalizes the root, skips symlinks and hidden folders, and feeds a pure
-TypeScript parser. Only MP4/M4V/WebM files become lessons. Sections are the parent
-folder paths, not database rows.
-
-Lessons are matched by their path relative to the course root. Rescans mark
-disappeared lessons as missing and preserve their progress and notes. An unreadable
-root, or an empty scan of an existing course, aborts without wiping lesson data.
-Relocating a course keeps matching relative paths.
-
-Videos are served through a token-protected loopback server on a random port,
-with byte-range seeking. They are not copied into the app or loaded via Tauri's
-asset protocol. Cover images are copied into app data.
-
-Playback positions are saved about every five seconds and flushed on pause,
-navigation and close. Completion is manual or automatic at 90% while playing
-(short lessons complete on ended); undo suppresses auto-completion for that visit.
-Notes are plain text, autosaved after typing stops and flushed alongside progress.
-Closing gives pending saves up to two seconds, then closes even if saving fails.
+Back up your progress and notes before moving data or upgrading. See the
+[backup and restore guide](docs/backup-and-restore.md) for data locations and
+manual instructions. Backups do not include videos or cover images.
 
 ## Development
 
-Prerequisites:
+Use Node **22.19.0** (.nvmrc), pnpm **11.17.0** (packageManager), a stable Rust
+toolchain with rustfmt and Clippy, and the
+[Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform.
+Ubuntu build/runtime packages are listed in the [release guide](docs/release.md).
 
-- Node **22.19.0** (`.nvmrc`) and pnpm **11.17.0** (`packageManager`).
-- A current stable Rust toolchain with rustfmt and clippy.
-- [Tauri 2 Linux prerequisites](https://v2.tauri.app/start/prerequisites/).
-  On Ubuntu:
-
-```sh
-sudo apt install build-essential pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev \
-  libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf \
-  gstreamer1.0-libav gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-```
-
-`gstreamer1.0-plugins-bad` is recommended for additional playback support.
-Actual codec availability depends on the video files.
-
-From the repository root (use `nvm use` first if you use nvm):
-
-```sh
+~~~sh
 pnpm install --frozen-lockfile
 pnpm tauri dev
-```
+~~~
 
-Quit the installed app before dev: both use the same database and single-instance
-identity. The Linux renderer default applies to dev builds too; to opt out, use
-`WEBKIT_DISABLE_DMABUF_RENDERER=0 pnpm tauri dev`.
+Quit the installed app before starting dev: they use the same local database and
+single-instance identity. To run the quality checks:
 
-Quality gates, also run by [CI](.github/workflows/ci.yml):
-
-```sh
+~~~sh
 pnpm check
 pnpm check:rust
-```
+~~~
 
-Other scripts: `pnpm typecheck`, `pnpm lint`, `pnpm lint:fix` (safe Biome fixes),
-`pnpm format` (formatting only), and `pnpm test`.
-CI checks pushes and pull requests; it does not publish or deploy releases.
-The former `/dev/spike` screen has been removed.
+For packaging, see [Ubuntu builds](docs/release.md) and
+[Windows builds through GitHub Actions](docs/windows.md). The Windows workflow
+builds on GitHub, so you don't need a local Windows toolchain just to test an installer.
 
-## Tech stack
+## Built with
 
-Tauri 2, Rust, React, TypeScript, React Router, Tailwind CSS v4, shadcn/ui
-(Base UI), SQLite through tauri-plugin-sql, Biome and Vitest. Inter is bundled;
-there are no remote fonts or required cloud services.
+Tauri 2 and Rust, React and TypeScript, Tailwind CSS v4, shadcn/ui (Base UI),
+SQLite, Biome and Vitest. Inter is bundled with the app.
 
-Frontend features live in `src/features`; SQL and numbered migrations in
-`src/lib/db`; scanning and the loopback server in `src-tauri/src`.
+## Feedback
 
-## Data, backups and troubleshooting
-
-Default Ubuntu locations (identifier remains `com.khaled.courseshelf`):
-
-| Data | Location |
-| --- | --- |
-| Database, possible WAL/SHM | `~/.config/com.khaled.courseshelf/courseshelf.db` |
-| Copied cover images | `~/.local/share/com.khaled.courseshelf/covers/` |
-| Persisted folder grants | `~/.local/share/com.khaled.courseshelf/.persisted-scope` |
-
-`XDG_CONFIG_HOME` and `XDG_DATA_HOME` override the base directories.
-Database backups contain course paths, progress and notes, **not** videos,
-covers or filesystem grants. The backup menu is intentionally hidden; backup
-helpers remain in the code. Restore is manual.
-
-- [Backup and restore instructions](docs/backup-and-restore.md)
-- [Build, install and release verification](docs/release.md)
-- [Daily-use bug notes](docs/bugs.md)
+This is a personal project, not a full learning platform. If you try it and find
+something wrong, [open an issue](https://github.com/khaledrefaat/courseshelf/issues)
+with your OS, app version and steps to reproduce it. Please leave private notes,
+course paths and playback URLs out of shared reports.
