@@ -5,7 +5,7 @@ It is still an early personal project, not a guarantee for every machine or code
 
 ## Install the published version
 
-1. [Download the Windows installer](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0/Courseshelf_0.2.0_x64-setup.exe).
+1. [Download the Windows installer](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0-windows-new/Courseshelf_0.2.0_x64-setup.exe).
 2. Quit any running copy, then run the setup executable. Installation is per user.
 3. Launch Courseshelf and add a local course folder.
 
@@ -22,7 +22,7 @@ The published 0.2.0 preview can briefly show black/white rectangles at startup;
 the maintainer reports the app works afterward. The startup visibility change
 below requires a newly built installer and still needs real Windows verification.
 
-[Release notes and checksum](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0)
+[Release notes and checksum](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-windows-new)
 are available on GitHub. To check the downloaded installer in PowerShell:
 
 ~~~powershell

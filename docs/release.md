@@ -75,7 +75,7 @@ backup integrity checks and safe manual restoration are documented in
    download URL while Windows and Ubuntu are published under different tags.
 
 The 0.2.0 Ubuntu preview is published under
-[v0.2.0-ubuntu](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-ubuntu).
+[v0.2.0-ubuntu-new](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-ubuntu-new).
 No automatic updater or signing is configured. Use preview labels until ready for
 wider distribution.
 
