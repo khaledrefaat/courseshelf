@@ -4,6 +4,10 @@ For the published Windows and Ubuntu downloads, see the [README](../README.md#do
 Ubuntu packages target **Ubuntu 24.04 x64** with WebKitGTK 4.1. Build on the oldest
 Ubuntu version you intend to support; newer glibc builds may not run on older systems.
 
+The source version is **0.3.0**. Building produces
+`Courseshelf_0.3.0_amd64.deb`; the Windows workflow produces
+`Courseshelf_0.3.0_x64-setup.exe`. These are not published automatically.
+
 ## Prerequisites and build
 
 Use the Node version in .nvmrc, pnpm from package.json's packageManager field,
@@ -46,7 +50,7 @@ Vite's existing native-config compatibility and large-chunk warnings are non-fat
 From the repository root:
 
 ~~~sh
-sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.2.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.3.0_amd64.deb
 courseshelf
 ~~~
 

@@ -25,6 +25,9 @@ sharing it with friends and anyone else who likes learning this way.
 Version **0.2.0** is available as an early preview for Windows and Ubuntu. I've
 tested the app on both; feedback from other machines is welcome.
 
+The source is now **0.3.0**; new installers are pending build and publication.
+The links below still point to the published 0.2.0 previews.
+
 | Platform | Installer | Release notes |
 | --- | --- | --- |
 | Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0-windows-preview/Courseshelf_0.2.0_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-windows-preview) |

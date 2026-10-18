@@ -1,6 +1,6 @@
 [package]
 name = "courseshelf"
-version = "0.2.0"
+version = "0.3.0"
 description = "Track your progress through local video courses"
 authors = ["Khaled"]
 edition = "2024"
