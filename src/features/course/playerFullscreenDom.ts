@@ -16,6 +16,16 @@ type FullscreenVideo = HTMLVideoElement & {
 	webkitExitFullscreen?: () => void | Promise<void>;
 };
 
+export function isNativeVideoFullscreen(video: HTMLVideoElement): boolean {
+	const doc = video.ownerDocument as FullscreenDocument;
+	return (
+		(doc.fullscreenElement ??
+			doc.webkitFullscreenElement ??
+			doc.webkitCurrentFullScreenElement) === video ||
+		!!(video as FullscreenVideo).webkitDisplayingFullscreen
+	);
+}
+
 export function fullscreenPort(
 	wrapper: HTMLElement,
 	video: () => HTMLVideoElement | null,

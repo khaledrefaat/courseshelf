@@ -151,6 +151,10 @@ function CourseContent({
 							expanded={controls.expanded}
 							bindPlayer={controls.bindPlayer}
 							onBeforePause={controls.exit}
+							nextLesson={model.next}
+							onAdvance={() => move(model.next)}
+							advanceBlocked={management.busy || management.selection !== null}
+							bindAutoAdvance={controls.bindAutoAdvance}
 						/>
 						<div
 							aria-hidden="true"

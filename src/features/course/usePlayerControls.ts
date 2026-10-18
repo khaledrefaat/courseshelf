@@ -55,6 +55,13 @@ export function hasPlayerBlockingPopup(doc: Document) {
 }
 
 export function usePlayerControls() {
+	const autoAdvance = useRef<(() => boolean) | null>(null);
+	const bindAutoAdvance = useCallback((cancel: () => boolean) => {
+		autoAdvance.current = cancel;
+		return () => {
+			if (autoAdvance.current === cancel) autoAdvance.current = null;
+		};
+	}, []);
 	const container = useRef<HTMLElement>(null);
 	const binding = useRef<{
 		video: HTMLVideoElement;
@@ -143,6 +150,7 @@ export function usePlayerControls() {
 		);
 		fullscreen.current = controller;
 		const shortcuts = playerShortcuts({
+			cancelAutoAdvance: () => autoAdvance.current?.() ?? false,
 			video: () => binding.current?.video ?? null,
 			canSeek: () => binding.current?.tracking.canSeek() ?? false,
 			focus,
@@ -218,6 +226,7 @@ export function usePlayerControls() {
 	return {
 		container,
 		bindPlayer,
+		bindAutoAdvance,
 		focus,
 		exit,
 		mode,

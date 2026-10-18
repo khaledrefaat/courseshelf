@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { registerProgressFlush } from "@/features/course/closeProgress";
+import { NextLessonCountdown } from "@/features/course/NextLessonCountdown";
 import { trackPlayback } from "@/features/course/playbackTracking";
 import { firstPlay, playQuietly } from "@/features/course/progressActions";
 import { positionLabel } from "@/features/course/trackingRules";
+import { useAutoAdvance } from "@/features/course/useAutoAdvance";
 import { registerManagedPlayer } from "@/features/course-management/state";
 import type { OutlineLesson } from "@/lib/db/courseOutline";
 import { get, savePosition } from "@/lib/db/progress";
@@ -17,6 +19,10 @@ export function LessonPlayer({
 	expanded,
 	bindPlayer,
 	onBeforePause,
+	nextLesson,
+	onAdvance,
+	advanceBlocked,
+	bindAutoAdvance,
 }: {
 	courseId: number;
 	lesson: OutlineLesson;
@@ -28,6 +34,10 @@ export function LessonPlayer({
 		tracking: ReturnType<typeof trackPlayback>,
 	) => () => void;
 	onBeforePause: () => Promise<void>;
+	nextLesson: OutlineLesson | null;
+	onAdvance: () => void;
+	advanceBlocked: boolean;
+	bindAutoAdvance: (cancel: () => boolean) => () => void;
 }) {
 	const [source, setSource] = useState<string | null>(null);
 	const [savedPosition, setSavedPosition] = useState(0);
@@ -40,6 +50,15 @@ export function LessonPlayer({
 	const autoplayOnce = useRef(autoplay);
 	const recordPlay = useRef(firstPlay(lesson.id));
 	const mounted = useRef(true);
+	const autoAdvance = useAutoAdvance({
+		video: videoRef,
+		source,
+		nextId: nextLesson?.id ?? null,
+		blocked: advanceBlocked,
+		advance: onAdvance,
+		exitFullscreen: onBeforePause,
+		bindCancel: bindAutoAdvance,
+	});
 	useEffect(() => {
 		let active = true;
 		mounted.current = true;
@@ -109,33 +128,47 @@ export function LessonPlayer({
 		<div className={expanded ? "h-full w-full" : undefined}>
 			{source ? (
 				<>
-					{/* biome-ignore lint/a11y/useMediaCaption: Local lesson player uses native controls; captions are out of scope. */}
-					<video
-						ref={videoRef}
-						key={lesson.id}
-						controls
-						preload="metadata"
-						src={source}
-						aria-label={lesson.title}
-						className={
-							expanded
-								? "h-full w-full bg-player object-contain"
-								: "aspect-video w-full rounded-lg bg-player"
-						}
-						onPlay={() => {
-							void recordPlay.current().catch(() => {
-								if (mounted.current)
-									setWatchError(
-										"Could not record this lesson as watched. Your saved position and completion were not changed.",
-									);
-							});
-						}}
-						onError={(event) => {
-							setError(
-								`Video failed to load (error code: ${event.currentTarget.error?.code ?? "unknown"}).`,
-							);
-						}}
-					/>
+					<div className={expanded ? "relative h-full w-full" : "relative"}>
+						{/* biome-ignore lint/a11y/useMediaCaption: Local lesson player uses native controls; captions are out of scope. */}
+						<video
+							ref={videoRef}
+							key={lesson.id}
+							controls
+							preload="metadata"
+							src={source}
+							aria-label={lesson.title}
+							className={
+								expanded
+									? "h-full w-full bg-player object-contain"
+									: "block aspect-video w-full rounded-lg bg-player"
+							}
+							onPlay={() => {
+								void recordPlay.current().catch(() => {
+									if (mounted.current)
+										setWatchError(
+											"Could not record this lesson as watched. Your saved position and completion were not changed.",
+										);
+								});
+							}}
+							onError={(event) => {
+								setError(
+									`Video failed to load (error code: ${event.currentTarget.error?.code ?? "unknown"}).`,
+								);
+							}}
+						/>
+						{autoAdvance.state && nextLesson && (
+							<NextLessonCountdown
+								state={autoAdvance.state}
+								title={nextLesson.title}
+								onCancel={autoAdvance.cancel}
+							/>
+						)}
+					</div>
+					{autoAdvance.error && (
+						<p role="alert" className="mt-3 text-sm text-destructive">
+							{autoAdvance.error}
+						</p>
+					)}
 					{resumed !== null && !expanded && (
 						<p className="mt-2 text-sm text-muted-foreground">
 							Resumed from {positionLabel(resumed)}{" "}

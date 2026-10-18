@@ -1,0 +1,39 @@
+/* Presentation only: the controller remains the source of truth for navigation. */
+.next-lesson-countdown {
+	animation: next-lesson-enter 220ms ease-out both;
+}
+
+.next-lesson-countdown-ring {
+	animation: next-lesson-fill 5s linear both;
+}
+
+.next-lesson-countdown-ready {
+	animation: none;
+}
+
+@keyframes next-lesson-fill {
+	from {
+		stroke-dashoffset: 100;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+
+@keyframes next-lesson-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.next-lesson-countdown,
+	.next-lesson-countdown-ring {
+		animation: none;
+	}
+}

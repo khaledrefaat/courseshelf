@@ -292,6 +292,15 @@ setting defaults to enabled, and Wry's Linux setup does not override it. The
 agent's GTK display probe failed, so native control clicks, fullscreenEnabled /
 webkitFullscreenEnabled values, real user-gesture fullscreen promises and
 WebKit's native Space activation cannot be claimed as end-to-end tested here.
+At the end of a lesson, a five-second countdown offers Cancel (S) before opening
+the next available lesson and attempting playback (WebKitGTK may block autoplay).
+Reaching 90% does not start the countdown; the final lesson has none. Replay,
+seeking, leaving/hiding the page or managing a course cancels it. Pending progress
+and notes writes settle before navigation; cancellation remains available during
+that wait. S follows the same editing/IME/menu/dialog guards as other shortcuts.
+Video-only native fullscreen exits at ended so the countdown is accessible;
+wrapper/window fullscreen remains active. Check this behavior in the real app.
+
 Node/fake-media tests cover application logic only. No optional speed shortcuts
 were added: absence of a native speed menu could not be verified.
 

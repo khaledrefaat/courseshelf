@@ -132,6 +132,9 @@ and the folder-tree sidebar.
 - Position saves are throttled (5s, 1s minimum change) and serialized per lesson. Never save a
   position before the resume seek is confirmed. Saves never touch `completed`.
 - Auto-complete at 90% while playing, or on ended. Undo suppresses re-completion for that visit.
+- On ended only, auto-advance to the next available lesson after a five-second countdown.
+  Cancel (S) follows the usual shortcut guards. Flush pending writes before navigating; cancel
+  on replay/seeking, page exit, hidden document or course management. No advance after the final lesson.
 - Window close flushes pending writes with a 2s timeout and always closes anyway.
 - Anything with pending writes (progress, notes) registers with the shared flush mechanism so the
   Library re-query and the close handler wait for it.

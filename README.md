@@ -9,6 +9,7 @@ their original folders; Courseshelf stores your progress, notes and cover copies
 - Add courses from folders containing MP4, M4V and WebM videos.
 - Sections derived from folders, natural lesson ordering and cached durations.
 - Native video controls, keyboard shortcuts and fullscreen.
+- After a lesson ends, a five-second countdown opens the next lesson. Cancel with the button or S.
 - Saved playback positions, resume, manual completion and automatic completion.
 - Plain-text per-lesson notes with autosave, plus all notes for a course.
 - Edit titles/covers, rescan, relocate and remove courses without deleting videos.

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { playerFullscreen } from "@/features/course/playerFullscreen";
-import { fullscreenPort } from "@/features/course/playerFullscreenDom";
+import {
+	fullscreenPort,
+	isNativeVideoFullscreen,
+} from "@/features/course/playerFullscreenDom";
 
 function fixture() {
 	const doc = Object.assign(new EventTarget(), {
@@ -44,6 +47,23 @@ function fixture() {
 afterEach(() => vi.useRealTimers());
 
 describe("browser fullscreen adapter", () => {
+	it("identifies video-only fullscreen without exiting wrapper fullscreen", () => {
+		const f = fixture();
+		const video = Object.assign(f.video, {
+			ownerDocument: f.doc,
+		}) as unknown as HTMLVideoElement;
+		expect(isNativeVideoFullscreen(video)).toBe(false);
+		f.doc.fullscreenElement = f.wrapper;
+		expect(isNativeVideoFullscreen(video)).toBe(false);
+		f.doc.fullscreenElement = video;
+		expect(isNativeVideoFullscreen(video)).toBe(true);
+		f.doc.fullscreenElement = null;
+		f.doc.webkitFullscreenElement = video;
+		expect(isNativeVideoFullscreen(video)).toBe(true);
+		f.doc.webkitFullscreenElement = null;
+		f.video.webkitDisplayingFullscreen = true;
+		expect(isNativeVideoFullscreen(video)).toBe(true);
+	});
 	it("requests the wrapper directly from the gesture and confirms actual fullscreen state", async () => {
 		const f = fixture();
 		const request = f.port.requestWrapper();

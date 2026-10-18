@@ -47,6 +47,7 @@ export function playerShortcuts(options: {
 	exitFullscreen(): void;
 	isFullscreen(): boolean;
 	indicate(text: string): void;
+	cancelAutoAdvance?(): boolean;
 }) {
 	let spaceHeld = false;
 	let spaceClickPending = false;
@@ -65,6 +66,10 @@ export function playerShortcuts(options: {
 			const space = isSpace(event);
 			if (space && guard.activationTarget) return;
 			const key = event.key.toLowerCase();
+			if (key === "s" && options.cancelAutoAdvance?.()) {
+				consume(event);
+				return;
+			}
 			if (key === "f" || (key === "escape" && options.isFullscreen())) {
 				consume(event);
 				if (!event.repeat) {

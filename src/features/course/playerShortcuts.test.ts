@@ -46,6 +46,7 @@ function fixture() {
 		exitFullscreen: vi.fn(),
 		isFullscreen: () => true,
 		indicate: vi.fn(),
+		cancelAutoAdvance: vi.fn(() => false),
 	};
 	return {
 		video,
@@ -58,6 +59,29 @@ function fixture() {
 }
 
 describe("player shortcuts", () => {
+	it("S cancels only an active countdown and respects shortcut guards", () => {
+		const f = fixture();
+		const inactive = keyEvent("s");
+		f.controls.keydown(inactive, allowed);
+		expect(inactive.defaultPrevented).toBe(false);
+		f.options.cancelAutoAdvance.mockReturnValue(true);
+		for (const key of ["s", "S"]) {
+			const event = keyEvent(key);
+			f.controls.keydown(event, allowed);
+			expect(event.defaultPrevented).toBe(true);
+		}
+		f.options.cancelAutoAdvance.mockClear();
+		for (const extra of [
+			{ ctrlKey: true },
+			{ altKey: true },
+			{ metaKey: true },
+			{ isComposing: true },
+			{ defaultPrevented: true },
+		])
+			f.controls.keydown(keyEvent("s", extra), allowed);
+		f.controls.keydown(keyEvent("s"), { ...allowed, blocked: true });
+		expect(f.options.cancelAutoAdvance).not.toHaveBeenCalled();
+	});
 	it("one Space consumes keydown/keypress/keyup and a synthetic click; real clicks remain native", () => {
 		const f = fixture();
 		for (const type of ["keydown", "keypress", "keyup", "click"]) {
