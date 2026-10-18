@@ -10,6 +10,7 @@ it("keeps Edit and Remove controls outside the course navigation link", () => {
 		id: 1,
 		title: "SQL",
 		created_at: "",
+		archived_at: null,
 		cover_path: null,
 		completed_lessons: 0,
 		total_lessons: 2,

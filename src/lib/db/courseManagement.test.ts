@@ -7,7 +7,7 @@ import {
 	deleteCourseFromLibrary,
 	updateCourseCover,
 } from "@/features/library/edit-cover/courseActions";
-import { updateCover } from "@/lib/db/courses";
+import { setArchived, updateCover } from "@/lib/db/courses";
 
 let sqlite: DatabaseSync;
 const bindings = (values: SQLInputValue[]) =>
@@ -48,6 +48,7 @@ beforeEach(() => {
 		"0001_initial.sql",
 		"0002_missing_lessons.sql",
 		"0003_lesson_durations.sql",
+		"0004_course_archived.sql",
 	])
 		sqlite.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
@@ -94,4 +95,23 @@ it("deleting a course cascades only its own learning rows", async () => {
 });
 it("refuses to save a cover to an unknown course", async () => {
 	await expect(updateCover(999, path)).rejects.toThrow("Course not found");
+});
+it("archiving only touches the archived timestamp and toggles back", async () => {
+	const before = learningRows();
+	await setArchived(1, true);
+	expect(
+		sqlite.prepare("SELECT archived_at FROM courses WHERE id=1").get()
+			?.archived_at,
+	).not.toBeNull();
+	expect(learningRows()).toEqual(before);
+	await setArchived(1, false);
+	expect(
+		sqlite.prepare("SELECT archived_at FROM courses WHERE id=1").get()
+			?.archived_at,
+	).toBeNull();
+});
+it("refuses to archive an unknown course", async () => {
+	await expect(setArchived(999, true)).rejects.toThrow(
+		"Course no longer exists",
+	);
 });

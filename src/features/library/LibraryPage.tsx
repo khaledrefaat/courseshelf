@@ -7,10 +7,13 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { archiveCourse } from "@/features/course-management/actions";
 import {
 	openCourseAction,
+	refreshManagement,
 	useManagement,
 } from "@/features/course-management/state";
+import { errorMessage } from "@/features/library/add-course/folders";
 import { ContinueCard } from "@/features/library/ContinueCard";
 import { CourseCard } from "@/features/library/CourseCard";
 import { EmptyLibrary } from "@/features/library/EmptyLibrary";
@@ -23,12 +26,14 @@ import {
 	sortCourses,
 } from "@/features/library/model";
 import { useLibrary } from "@/features/library/useLibrary";
+import type { CourseSummary } from "@/lib/db/courseSummaries";
 
 const tabs: { value: StatusFilter; label: string }[] = [
 	{ value: "All", label: "All" },
 	{ value: "In progress", label: "In progress" },
 	{ value: "Completed", label: "Completed" },
 	{ value: "New", label: "Not started" },
+	{ value: "Archived", label: "Archived" },
 ];
 const sorts: CourseSort[] = [
 	"Last watched",
@@ -60,6 +65,13 @@ export function LibraryPage({
 				Loading your library…
 			</main>
 		);
+	async function toggleArchive(course: CourseSummary) {
+		try {
+			await archiveCourse(course.id, course.archived_at === null);
+		} catch (cause) {
+			refreshManagement(errorMessage(cause));
+		}
+	}
 	const currentCourses = courses;
 	if (currentCourses.length === 0)
 		return (
@@ -67,7 +79,10 @@ export function LibraryPage({
 				<EmptyLibrary onAddCourse={onAddCourse} />
 			</main>
 		);
-	const continuing = continueCourse(currentCourses);
+	const activeCourses = currentCourses.filter(
+		(course) => course.archived_at === null,
+	);
+	const continuing = continueCourse(activeCourses);
 	const visible = sortCourses(
 		filterCourses(currentCourses, status, search),
 		sort,
@@ -81,6 +96,7 @@ export function LibraryPage({
 					registration={registrations.get(course.id)}
 					disabled={busy}
 					onEditCover={() => openCourseAction(course.id, "edit")}
+					onArchive={() => void toggleArchive(course)}
 					onDelete={() => openCourseAction(course.id, "remove")}
 					onLocate={() => openCourseAction(course.id, "locate")}
 				/>
@@ -122,10 +138,12 @@ export function LibraryPage({
 							>
 								{tab.label} ·{" "}
 								{tab.value === "All"
-									? currentCourses.length
-									: currentCourses.filter(
-											(course) => courseStatus(course) === tab.value,
-										).length}
+									? activeCourses.length
+									: tab.value === "Archived"
+										? currentCourses.length - activeCourses.length
+										: activeCourses.filter(
+												(course) => courseStatus(course) === tab.value,
+											).length}
 							</TabsTrigger>
 						))}
 					</TabsList>

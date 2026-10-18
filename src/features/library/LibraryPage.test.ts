@@ -12,6 +12,7 @@ const course: CourseSummary = {
 	title: "SQLite",
 	cover_path: null,
 	created_at: "2026-10-17 10:00:00",
+	archived_at: null,
 	total_lessons: 4,
 	completed_lessons: 1,
 	last_watched_at: "2026-10-17 10:00:00",
@@ -63,6 +64,27 @@ it("shows no-match text rather than an empty shelf when a search fails", () => {
 	const html = render("not SQLite");
 	expect(html).toContain("No courses match");
 	expect(html).not.toContain("Your shelf is empty");
+});
+it("keeps archived courses off the shelf and on their own tab", () => {
+	vi.mocked(useLibrary).mockReturnValue({
+		courses: [
+			course,
+			{
+				...course,
+				id: 2,
+				title: "Old SQLite",
+				archived_at: "2026-10-18 09:00:00",
+			},
+		],
+		error: null,
+		registrationError: null,
+		registrations: new Map(),
+	});
+	const html = render();
+	expect(html).toContain("SQLite");
+	expect(html).not.toContain("Old SQLite");
+	expect(html).toContain("All · 1");
+	expect(html).toContain("Archived · 1");
 });
 it("shows the empty shelf only for an empty database", () => {
 	vi.mocked(useLibrary).mockReturnValue({

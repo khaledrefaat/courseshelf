@@ -84,6 +84,19 @@ export async function updateDetails(
 	);
 	if (!result.rowsAffected) throw new Error("Course no longer exists.");
 }
+export async function setArchived(
+	id: number,
+	archived: boolean,
+): Promise<void> {
+	const db = await getDb();
+	const result = await db.execute(
+		archived
+			? "UPDATE courses SET archived_at=CURRENT_TIMESTAMP WHERE id=$1"
+			: "UPDATE courses SET archived_at=NULL WHERE id=$1",
+		[id],
+	);
+	if (!result.rowsAffected) throw new Error("Course no longer exists.");
+}
 export async function updateRoot(id: number, root: string): Promise<void> {
 	const db = await getDb();
 	const result = await db.execute(

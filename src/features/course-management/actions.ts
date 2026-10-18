@@ -146,6 +146,13 @@ export function editCourse(
 	});
 }
 
+export function archiveCourse(courseId: number, archived: boolean) {
+	return manage(async () => {
+		await courses.setArchived(courseId, archived);
+		refreshManagement(archived ? "Course archived." : "Course restored.");
+	});
+}
+
 export function removeCourse(courseId: number) {
 	return manage(async () => {
 		const course = await courses.getById(courseId);

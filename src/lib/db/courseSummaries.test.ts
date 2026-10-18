@@ -14,6 +14,7 @@ beforeEach(() => {
 		"0001_initial.sql",
 		"0002_missing_lessons.sql",
 		"0003_lesson_durations.sql",
+		"0004_course_archived.sql",
 	])
 		sqlite.exec(
 			readFileSync(new URL(`./migrations/${file}`, import.meta.url), "utf8"),
@@ -43,6 +44,14 @@ describe("course summaries with actual SQLite", () => {
 			resume_lesson_id: null,
 		});
 		expect(select).toHaveBeenCalledTimes(1);
+	});
+	it("reports archived_at alongside each course", async () => {
+		sqlite.exec(
+			"UPDATE courses SET archived_at = CURRENT_TIMESTAMP WHERE id = 2",
+		);
+		const rows = await listCourseSummaries();
+		expect(rows[0]).toMatchObject({ id: 1, archived_at: null });
+		expect(rows[1].archived_at).not.toBeNull();
 	});
 	it("uses the next non-missing lesson after a completed watched lesson", async () => {
 		sqlite.exec("UPDATE progress SET completed = 1 WHERE lesson_id = 2");

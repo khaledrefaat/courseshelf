@@ -6,6 +6,7 @@ export interface CourseSummary {
 	title: string;
 	cover_path: string | null;
 	created_at: string;
+	archived_at: string | null;
 	total_lessons: number;
 	completed_lessons: number;
 	last_watched_at: string | null;
@@ -45,7 +46,7 @@ export async function listCourseSummaries(): Promise<CourseSummary[]> {
 				AND (a.completed = 0 OR (w.completed = 1 AND
 					(a.sort_order > w.sort_order OR (a.sort_order = w.sort_order AND a.id > w.id))))
 		)
-		SELECT c.id, c.title, c.cover_path, c.created_at,
+		SELECT c.id, c.title, c.cover_path, c.created_at, c.archived_at,
 			COALESCE(t.total_lessons, 0) AS total_lessons,
 			COALESCE(t.completed_lessons, 0) AS completed_lessons,
 			t.last_watched_at, r.id AS resume_lesson_id, r.title AS resume_lesson_title

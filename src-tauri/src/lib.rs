@@ -52,6 +52,14 @@ pub fn run() {
                             ),
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 4,
+                            description: "course_archived",
+                            sql: include_str!(
+                                "../../src/lib/db/migrations/0004_course_archived.sql"
+                            ),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),

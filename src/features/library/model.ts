@@ -1,7 +1,7 @@
 import type { CourseSummary } from "@/lib/db/courseSummaries";
 
 export type CourseStatus = "New" | "In progress" | "Completed";
-export type StatusFilter = "All" | CourseStatus;
+export type StatusFilter = "All" | CourseStatus | "Archived";
 export type CourseSort =
 	| "Last watched"
 	| "Title"
@@ -31,11 +31,18 @@ export function filterCourses(
 	search: string,
 ): CourseSummary[] {
 	const term = search.trim().toLocaleLowerCase();
-	return courses.filter(
-		(course) =>
-			(status === "All" || courseStatus(course) === status) &&
-			course.title.toLocaleLowerCase().includes(term),
-	);
+	return courses.filter((course) => {
+		// Archiving is orthogonal to watch status: only the Archived tab lists
+		// archived courses, and every other filter sees active courses alone.
+		const archived = course.archived_at !== null;
+		if (status === "Archived" ? !archived : archived) return false;
+		return (
+			(status === "All" ||
+				status === "Archived" ||
+				courseStatus(course) === status) &&
+			course.title.toLocaleLowerCase().includes(term)
+		);
+	});
 }
 
 export function sortCourses(

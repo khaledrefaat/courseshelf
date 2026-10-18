@@ -14,6 +14,7 @@ const fresh: CourseSummary = {
 	title: "Course 10",
 	cover_path: null,
 	created_at: "2026-10-15 10:00:00",
+	archived_at: null,
 	total_lessons: 3,
 	completed_lessons: 0,
 	last_watched_at: null,
@@ -61,6 +62,28 @@ describe("library pure functions", () => {
 		expect(filterCourses([completed], "Completed", "العربية")).toEqual([
 			completed,
 		]);
+	});
+	it("keeps archived courses out of every tab except Archived", () => {
+		const archived: CourseSummary = {
+			...watching,
+			id: 4,
+			title: "Course 4",
+			archived_at: "2026-10-18 10:00:00",
+		};
+		expect(filterCourses([fresh, archived, watching], "All", "")).toEqual([
+			fresh,
+			watching,
+		]);
+		expect(
+			filterCourses([fresh, archived, watching], "In progress", ""),
+		).toEqual([watching]);
+		expect(filterCourses([fresh, archived], "Archived", "")).toEqual([
+			archived,
+		]);
+		expect(filterCourses([fresh, archived], "Archived", "course 4")).toEqual([
+			archived,
+		]);
+		expect(filterCourses([fresh], "Archived", "")).toEqual([]);
 	});
 	it("supports all sorts without mutating input and places unwatched last", () => {
 		const input = [fresh, watching, completed];

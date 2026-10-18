@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function CourseCard({
 	course,
 	registration,
 	onEditCover,
+	onArchive,
 	onDelete,
 	onLocate,
 	disabled = false,
@@ -38,6 +39,7 @@ export function CourseCard({
 	course: CourseSummary;
 	registration?: Readonly<RegistrationStatus>;
 	onEditCover?: () => void;
+	onArchive?: () => void;
 	onDelete?: () => void;
 	onLocate?: () => void;
 	disabled?: boolean;
@@ -98,6 +100,23 @@ export function CourseCard({
 						className="size-8 bg-card/95 shadow-sm"
 					>
 						<Pencil aria-hidden="true" className="size-3.5" />
+					</Button>
+				)}
+				{onArchive && (
+					<Button
+						variant="secondary"
+						size="icon"
+						onClick={onArchive}
+						disabled={disabled}
+						aria-label={`${course.archived_at ? "Unarchive" : "Archive"} course ${course.title}`}
+						title={`${course.archived_at ? "Unarchive" : "Archive"} course`}
+						className="size-8 bg-card/95 shadow-sm"
+					>
+						{course.archived_at ? (
+							<ArchiveRestore aria-hidden="true" className="size-3.5" />
+						) : (
+							<Archive aria-hidden="true" className="size-3.5" />
+						)}
 					</Button>
 				)}
 				{onDelete && (
