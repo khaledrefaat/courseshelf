@@ -22,23 +22,19 @@ sharing it with friends and anyone else who likes learning this way.
 
 ## Download
 
-Version **0.2.0** is available as an early preview for Windows and Ubuntu. I've
-tested the app on both; feedback from other machines is welcome.
-
-The source is now **0.3.0**; new installers are pending build and publication.
-The links below still point to the published 0.2.0 previews.
+Version **0.3.0** is available as an early preview for Windows and Ubuntu.
+Feedback from other machines is welcome.
 
 | Platform | Installer | Release notes |
 | --- | --- | --- |
-| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0-windows-preview/Courseshelf_0.2.0_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-windows-preview) |
-| Ubuntu 24.04 x64 | [Download for Ubuntu (.deb)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.2.0-ubuntu-new/Courseshelf_0.2.0_amd64.deb) | [Ubuntu preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0-ubuntu-new) |
-
+| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.0/Courseshelf_0.3.0_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.0) |
+| Ubuntu 24.04 x64 | [Download for Ubuntu (.deb)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.0-ubuntu/Courseshelf_0.3.0_amd64.deb) | [Ubuntu preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.0-ubuntu) |
 
 No Rust or development tools are needed to install either version.
 
 ### Windows
 
-Download and run Courseshelf_0.2.0_x64-setup.exe. The installer may need internet
+Download and run Courseshelf_0.3.0_x64-setup.exe. The installer may need internet
 access to install Microsoft Edge WebView2 if it's missing.
 
 The installer is unsigned, so Windows may show an Unknown publisher or SmartScreen
@@ -50,7 +46,7 @@ security globally to install it.
 Download the .deb, open a terminal in its folder, and run:
 
 ~~~sh
-sudo apt install ./Courseshelf_0.2.0_amd64.deb
+sudo apt install ./Courseshelf_0.3.0_amd64.deb
 ~~~
 
 Launch Courseshelf from your applications menu. Apt installs the required runtime
@@ -67,6 +63,8 @@ dependencies and may need internet access. Quit any running copy before updating
   view for each course.
 - **Watch comfortably:** native video controls, keyboard shortcuts, fullscreen and
   a five-second next-lesson countdown you can cancel with S.
+- **Watch with subtitles:** matching VTT/SRT files load automatically, with a
+  remembered On/Off toggle. Subtitle generation is not included.
 - **Keep your library up to date:** rescan or relocate a course without losing
   matching lessons' progress and notes. Missing files are marked, not forgotten.
 - **Make it feel at home:** light and dark colors follow your system theme.
@@ -86,9 +84,7 @@ Back up your progress and notes before moving data or upgrading. See the
 [backup and restore guide](docs/backup-and-restore.md) for data locations and
 manual instructions. Backups do not include videos or cover images.
 
-## Development
-
-### Subtitles (source builds)
+## Subtitles
 
 Place a matching `.vtt` or `.srt` beside the lesson video, for example
 `Introduction.mp4` and `Introduction.en.vtt`. Exact filename matches take
@@ -103,10 +99,10 @@ The button is hidden when no matching sidecar exists. Native controls remain in
 place. Embedded subtitles and automatic transcription are not part of this feature.
 Basic timed text is supported; VTT styles/regions are ignored. Files must be UTF-8
 or BOM-marked UTF-16, at most 2 MB and 10,000 cues. Invalid subtitles show a message
-without preventing video playback. Existing published installers do not gain this
-feature until rebuilt and released.
+without preventing video playback. Subtitle support is included in 0.3.0; update
+older installations to use it.
 
-### Development setup
+## Development
 
 Use Node **22.19.0** (.nvmrc), pnpm **11.17.0** (packageManager), a stable Rust
 toolchain with rustfmt and Clippy, and the
