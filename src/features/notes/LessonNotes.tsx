@@ -17,7 +17,7 @@ export function LessonNotes({ lessonId }: { lessonId: number }) {
 				placeholder="Write notes for this lesson..."
 				value={draft.content}
 				maxLength={NOTE_LIMIT}
-				className="min-h-38 w-full resize-y rounded-xl border bg-muted px-4 py-3.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+				className="min-h-38 w-full resize-y rounded-xl border bg-muted px-4 py-3.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-background"
 				onChange={(event) =>
 					controller.edit(lessonId, event.currentTarget.value)
 				}

@@ -42,7 +42,7 @@ Run typecheck and lint before saying a task is done.
 - Follow the system light/dark preference, including changes while running. Theme and cover palette
   tokens live in src/index.css. Use player/player-foreground for media surfaces, not primary.
 - Light mode uses white surfaces and neutral grays, with a solid plum header and white header text;
-  dark mode keeps its warm brown palette. Header-contained inputs and buttons set their own foreground colors.
+  dark mode uses warm charcoal surfaces with plum/pink accents. Header-contained inputs and buttons set their own foreground colors.
 - No global element styles (`button`, `input`, `a`, `h1`) in CSS. Style through components and utilities.
 - shadcn components are added one at a time with `pnpm dlx shadcn@latest add <name>`.
   Use shadcn `progress` for bars (indicator uses `bg-brand`). Don't hand-build what shadcn provides.
