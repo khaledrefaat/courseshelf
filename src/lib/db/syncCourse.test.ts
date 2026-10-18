@@ -217,4 +217,29 @@ describe("syncCourse with actual SQLite queries", () => {
 		await first;
 		expect(scanCourse).toHaveBeenCalledTimes(1);
 	});
+	it("counts only newly missing rows, counts restored rows, and leaves progress/notes intact across repeated rescans", async () => {
+		const { course, first } = await fixture();
+		vi.mocked(scanCourse).mockResolvedValue(found(["01 - One.mp4"]));
+		const initial = await syncCourse(course.id);
+		expect(initial).toMatchObject({
+			ok: true,
+			missing_count: 1,
+			restored_count: 0,
+		});
+		expect(await syncCourse(course.id)).toMatchObject({
+			ok: true,
+			missing_count: 0,
+			restored_count: 0,
+		});
+		vi.mocked(scanCourse).mockResolvedValue(
+			found(["01 - One.mp4", "02 - Two.mp4"]),
+		);
+		expect(await syncCourse(course.id)).toMatchObject({
+			ok: true,
+			added_count: 0,
+			missing_count: 0,
+			restored_count: 1,
+		});
+		expect(await notes.get(first.id)).not.toBeNull();
+	});
 });

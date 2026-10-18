@@ -4,6 +4,36 @@ use tiny_http::TestRequest;
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
+#[test]
+fn unregister_is_idempotent_revokes_old_urls_and_keeps_other_courses() {
+    let fixture = Fixture::new();
+    fixture.file("lesson.mp4");
+    fixture
+        .media
+        .register(
+            CourseRoot {
+                course_id: 2,
+                root_path: fixture.root.to_str().unwrap().into(),
+            },
+            &|_| true,
+        )
+        .unwrap();
+    let url = fixture.route("lesson.mp4");
+    fixture.media.unregister(1).unwrap();
+    fixture.media.unregister(1).unwrap();
+    assert_eq!(
+        error_code(fixture.media.lesson_url(1, "lesson.mp4")),
+        "COURSE_NOT_REGISTERED"
+    );
+    assert!(fixture.media.lesson_url(2, "lesson.mp4").is_ok());
+    let request: Request = TestRequest::new()
+        .with_path(&url)
+        .with_header(header("Host", &fixture.media.address.to_string()))
+        .into();
+    let response = response_for(&request, fixture.media.address, &fixture.media.shared);
+    assert_eq!(response.status_code().0, 404);
+}
+
 struct Fixture {
     root: PathBuf,
     media: VideoStream,

@@ -1,4 +1,5 @@
 import { LoaderCircle } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -7,21 +8,37 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { editCourse } from "@/features/course-management/actions";
+import { validTitle } from "@/features/course-management/model";
+import { useManagement } from "@/features/course-management/state";
 import { CourseCover } from "@/features/library/CourseCover";
 import { useEditCover } from "@/features/library/edit-cover/useEditCover";
-import type { CourseSummary } from "@/lib/db/courseSummaries";
+import type { Course } from "@/lib/db/courses";
 
 export function EditCoverDialog({
 	course,
 	onCancel,
 	onSaved,
+	editDetails = false,
 }: {
-	course: CourseSummary;
+	course: Pick<Course, "id" | "title" | "cover_path"> & Partial<Course>;
+	editDetails?: boolean;
 	onCancel: () => void;
 	onSaved: (path: string | null, warning: string | null) => void;
 }) {
-	const state = useEditCover(course, onSaved);
-	const locked = state.saving || state.pickerOpen;
+	const [title, setTitle] = useState(course.title);
+	const management = useManagement();
+	const state = useEditCover(
+		course,
+		onSaved,
+		editDetails
+			? (cover) => editCourse(course as Course, title, cover)
+			: undefined,
+		editDetails && title.trim() !== course.title,
+	);
+	const locked = state.saving || state.pickerOpen || management.busy;
 	return (
 		<Dialog
 			open
@@ -42,9 +59,28 @@ export function EditCoverDialog({
 				className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-120"
 			>
 				<DialogHeader>
-					<DialogTitle className="text-xl font-bold">Edit cover</DialogTitle>
+					<DialogTitle className="text-xl font-bold">
+						{editDetails ? "Edit course" : "Edit cover"}
+					</DialogTitle>
 					<DialogDescription>{course.title}</DialogDescription>
 				</DialogHeader>
+				{editDetails && (
+					<div className="space-y-2">
+						<Label htmlFor="edit-course-title">Course title</Label>
+						<Input
+							id="edit-course-title"
+							value={title}
+							maxLength={120}
+							disabled={locked}
+							onChange={(event) => setTitle(event.target.value)}
+						/>
+						{!validTitle(title) && (
+							<p role="alert" className="text-sm text-destructive">
+								Title is required (maximum 120 characters).
+							</p>
+						)}
+					</div>
+				)}
 				{state.previewUrl ? (
 					<img
 						src={state.previewUrl}
@@ -56,6 +92,7 @@ export function EditCoverDialog({
 					<CourseCover
 						course={{
 							...course,
+							title: editDetails ? title : course.title,
 							cover_path: state.change === null ? null : course.cover_path,
 						}}
 						className="aspect-video rounded-lg"
@@ -113,7 +150,13 @@ export function EditCoverDialog({
 						Cancel
 					</Button>
 					<Button
-						disabled={locked || state.reading || !state.dirty || state.invalid}
+						disabled={
+							locked ||
+							state.reading ||
+							!state.dirty ||
+							state.invalid ||
+							(editDetails && !validTitle(title))
+						}
 						onClick={() => void state.save()}
 						className="h-10 gap-2 px-4"
 					>

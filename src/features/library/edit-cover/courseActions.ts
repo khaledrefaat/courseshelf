@@ -37,7 +37,7 @@ export function managedCoverPath(
 }
 
 const saving = new Set<number>();
-async function cleanupCover(
+export async function cleanupCover(
 	courseId: number,
 	oldPath: string | null,
 	label: string,

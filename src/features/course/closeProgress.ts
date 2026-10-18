@@ -2,6 +2,16 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { waitForProgressWrites } from "@/lib/db/progressWrites";
 
 const flushers = new Set<() => void>();
+export async function flushPendingData() {
+	for (const flush of flushers) {
+		try {
+			flush();
+		} catch {
+			/* Best effort. */
+		}
+	}
+	await waitForProgressWrites();
+}
 export function registerProgressFlush(flush: () => void) {
 	flushers.add(flush);
 	return () => {

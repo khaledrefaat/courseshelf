@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { persistCompletion } from "@/features/course/progressActions";
+import { useManagement } from "@/features/course-management/state";
 import { type CourseOutline, getCourseOutline } from "@/lib/db/courseOutline";
 import { listCourseSummaries } from "@/lib/db/courseSummaries";
 
 export function useCourse(courseId: number) {
+	const { revision } = useManagement();
 	const [data, setData] = useState<{
 		outline: CourseOutline | null;
 		resumeId: number | null;
@@ -13,6 +15,7 @@ export function useCourse(courseId: number) {
 	const [saving, setSaving] = useState(false);
 	const busy = useRef(new Set<number>());
 	const mounted = useRef(true);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Management mutations explicitly invalidate this query.
 	useEffect(() => {
 		let active = true;
 		mounted.current = true;
@@ -36,7 +39,7 @@ export function useCourse(courseId: number) {
 			active = false;
 			mounted.current = false;
 		};
-	}, [courseId]);
+	}, [courseId, revision]);
 	async function changeCompletion(lessonId: number, desired?: boolean) {
 		const lesson = data?.outline?.lessons.find((row) => row.id === lessonId);
 		if (!lesson || busy.current.has(lessonId)) return;

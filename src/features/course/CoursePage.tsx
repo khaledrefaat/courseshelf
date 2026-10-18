@@ -10,13 +10,23 @@ import {
 	parseId,
 } from "@/features/course/outline";
 import { useCourse } from "@/features/course/useCourse";
+import { ManageMenu } from "@/features/course-management/ManageMenu";
+import { refreshedLessonMissing } from "@/features/course-management/model";
+import { useManagement } from "@/features/course-management/state";
 import { NotesPanel } from "@/features/notes/NotesPanel";
 import type { CourseOutline, OutlineLesson } from "@/lib/db/courseOutline";
 
-function CourseMessage({ message }: { message: string }) {
+function CourseMessage({
+	message,
+	courseId,
+}: {
+	message: string;
+	courseId?: number;
+}) {
 	return (
 		<main className="p-10">
 			<h1 className="text-xl font-bold">{message}</h1>
+			{courseId && <ManageMenu courseId={courseId} />}
 			<Link to="/" className="mt-4 inline-block text-brand hover:underline">
 				Back to Library
 			</Link>
@@ -40,6 +50,7 @@ function CourseContent({
 	completeLesson: (id: number) => Promise<void>;
 }) {
 	const navigate = useNavigate();
+	const management = useManagement();
 	const model = useMemo(
 		() => buildOutline(outline.lessons, lesson.id),
 		[outline.lessons, lesson.id],
@@ -55,7 +66,7 @@ function CourseContent({
 		navigate(`/course/${outline.course.id}/lesson/${target.id}`);
 	}
 	return (
-		<div className="flex h-dvh flex-col overflow-hidden">
+		<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 			<header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-5 sm:px-10">
 				<Button
 					variant="outline"
@@ -85,6 +96,7 @@ function CourseContent({
 						{lesson.title}
 					</span>
 				</nav>
+				<ManageMenu courseId={outline.course.id} />
 			</header>
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<CourseSidebar
@@ -94,7 +106,7 @@ function CourseContent({
 				/>
 				<main className="min-w-0 flex-1 overflow-y-auto p-5 lg:px-10 lg:py-8">
 					<LessonPlayer
-						key={lesson.id}
+						key={`${lesson.id}:${outline.course.root_path}:${management.playbackVersions.get(outline.course.id) ?? 0}`}
 						courseId={outline.course.id}
 						lesson={lesson}
 						autoplay={autoplay}
@@ -172,6 +184,7 @@ function LoadedCourse({
 		toggleCompletion,
 		completeLesson,
 	} = useCourse(courseId);
+	const previouslyViewed = useRef<number | null>(null);
 	if (error) return <CourseMessage message={error} />;
 	if (!data)
 		return (
@@ -184,11 +197,25 @@ function LoadedCourse({
 		rawLessonId,
 		data.resumeId,
 	);
+	if (destination.kind === "lesson")
+		previouslyViewed.current = destination.lesson.id;
+	if (
+		destination.kind === "not-found" &&
+		previouslyViewed.current === Number(rawLessonId) &&
+		refreshedLessonMissing(
+			previouslyViewed.current,
+			data.outline?.lessons.map((row) => row.id) ?? [],
+		)
+	)
+		return <Navigate replace to={`/course/${courseId}`} />;
 	if (destination.kind === "not-found")
 		return <CourseMessage message={destination.message} />;
 	if (destination.kind === "empty")
 		return (
-			<CourseMessage message="This course has no available lessons. Its folder may need to be synced." />
+			<CourseMessage
+				courseId={courseId}
+				message="This course has no available lessons. Its folder may need to be synced."
+			/>
 		);
 	if (destination.kind === "redirect")
 		return (

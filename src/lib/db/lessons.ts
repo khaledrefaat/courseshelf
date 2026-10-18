@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db/db";
+import { allowLessonWrites } from "@/lib/db/progressWrites";
 import { comparePaths } from "@/lib/scanner/structure";
 
 export interface Lesson {
@@ -42,6 +43,12 @@ export async function upsertMany(
 			]),
 		);
 	}
+	// SQLite can reuse integer IDs after a course is removed and a new one is imported.
+	const ids = await db.select<{ id: number }[]>(
+		"SELECT id FROM lessons WHERE course_id=$1",
+		[courseId],
+	);
+	allowLessonWrites(ids.map((row) => row.id));
 }
 
 export async function listByCourse(courseId: number): Promise<Lesson[]> {

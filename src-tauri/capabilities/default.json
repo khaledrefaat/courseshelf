@@ -8,6 +8,7 @@
 		"core:window:allow-destroy",
 		"opener:default",
 		"dialog:allow-open",
+		"dialog:allow-save",
 		"fs:deny-default",
 		{
 			"identifier": "fs:allow-read-file",

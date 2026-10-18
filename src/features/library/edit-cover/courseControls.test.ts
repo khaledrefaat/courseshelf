@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 import { CourseCard } from "@/features/library/CourseCard";
 import type { CourseSummary } from "@/lib/db/courseSummaries";
 
-it("keeps Edit cover and Delete controls outside the course navigation link", () => {
+it("keeps Edit and Remove controls outside the course navigation link", () => {
 	const course: CourseSummary = {
 		id: 1,
 		title: "SQL",
@@ -28,11 +28,11 @@ it("keeps Edit cover and Delete controls outside the course navigation link", ()
 			}),
 		),
 	);
-	expect(html).toContain('aria-label="Edit cover for SQL"');
-	expect(html).toContain('aria-label="Delete course SQL"');
+	expect(html).toContain('aria-label="Edit course SQL"');
+	expect(html).toContain('aria-label="Remove course SQL"');
 	const link = html.slice(html.indexOf("<a "), html.indexOf("</a>"));
 	expect(link).not.toContain("<button");
-	expect(html.indexOf('aria-label="Edit cover for SQL"')).toBeGreaterThan(
+	expect(html.indexOf('aria-label="Edit course SQL"')).toBeGreaterThan(
 		html.indexOf("</a>"),
 	);
 });

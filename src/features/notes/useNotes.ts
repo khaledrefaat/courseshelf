@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { useManagement } from "@/features/course-management/state";
 import type { NoteLesson } from "@/features/notes/controller";
 import { notesController } from "@/features/notes/store";
 
@@ -16,11 +17,15 @@ export function useNotes(
 	lessons: readonly NoteLesson[],
 ) {
 	const controller = useNotesSnapshot();
+	const { revision } = useManagement();
+	const lessonKey = lessons
+		.map((lesson) => `${lesson.id}:${lesson.sort_order}:${lesson.title}`)
+		.join("|");
 	// Outline completion changes are not note reloads.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reload on course visit, not completion changes.
 	useEffect(() => {
 		void controller.loadCourse(courseId, lessons);
-	}, [courseId, controller]);
+	}, [courseId, controller, revision, lessonKey]);
 	useEffect(() => {
 		const saveShortcut = (event: KeyboardEvent) => {
 			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {

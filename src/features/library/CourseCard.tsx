@@ -32,11 +32,15 @@ export function CourseCard({
 	registration,
 	onEditCover,
 	onDelete,
+	onLocate,
+	disabled = false,
 }: {
 	course: CourseSummary;
 	registration?: Readonly<RegistrationStatus>;
 	onEditCover?: () => void;
 	onDelete?: () => void;
+	onLocate?: () => void;
+	disabled?: boolean;
 }) {
 	const status = courseStatus(course);
 	const percent = progressPercent(course);
@@ -44,7 +48,7 @@ export function CourseCard({
 		<article className="relative overflow-hidden rounded-lg border bg-card shadow-card transition-shadow hover:shadow-md">
 			<Link
 				to={`/course/${course.id}`}
-				className="block h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+				className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
 			>
 				<CourseCover course={course} className="aspect-video">
 					<Badge
@@ -71,14 +75,26 @@ export function CourseCard({
 					/>
 				</div>
 			</Link>
+			{registration && registration.status !== "registered" && onLocate && (
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={disabled}
+					onClick={onLocate}
+					className="mx-4 mb-4 bg-card"
+				>
+					Locate folder
+				</Button>
+			)}
 			<div className="absolute top-2 right-2 flex gap-1">
 				{onEditCover && (
 					<Button
 						variant="secondary"
 						size="icon"
 						onClick={onEditCover}
-						aria-label={`Edit cover for ${course.title}`}
-						title="Edit cover"
+						disabled={disabled}
+						aria-label={`Edit course ${course.title}`}
+						title="Edit course"
 						className="size-8 bg-card/95 shadow-sm"
 					>
 						<Pencil aria-hidden="true" className="size-3.5" />
@@ -89,8 +105,9 @@ export function CourseCard({
 						variant="secondary"
 						size="icon"
 						onClick={onDelete}
-						aria-label={`Delete course ${course.title}`}
-						title="Delete course"
+						disabled={disabled}
+						aria-label={`Remove course ${course.title}`}
+						title="Remove course"
 						className="size-8 bg-card/95 text-destructive shadow-sm"
 					>
 						<Trash2 aria-hidden="true" className="size-3.5" />

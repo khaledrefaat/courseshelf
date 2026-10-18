@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useManagement } from "@/features/course-management/state";
 import { retainCoverCache } from "@/features/library/coverCache";
 import {
 	type CourseSummary,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/playback";
 
 export function useLibrary() {
+	const { revision } = useManagement();
 	const [courses, setCourses] = useState<CourseSummary[] | null>(null);
 	const [registrations, setRegistrations] = useState<
 		Map<number, Readonly<RegistrationStatus>>
@@ -20,6 +22,7 @@ export function useLibrary() {
 	const [registrationError, setRegistrationError] = useState<string | null>(
 		null,
 	);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Management mutations explicitly invalidate these summaries.
 	useEffect(() => {
 		let active = true;
 		const release = retainCoverCache();
@@ -48,6 +51,6 @@ export function useLibrary() {
 			active = false;
 			release();
 		};
-	}, []);
+	}, [revision]);
 	return { courses, registrations, error, registrationError };
 }

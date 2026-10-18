@@ -1,3 +1,4 @@
+mod backup_target;
 mod course_scanner;
 mod video_stream;
 
@@ -46,6 +47,8 @@ pub fn run() {
             greet,
             video_stream::register_course_roots,
             video_stream::register_course_root,
+            video_stream::unregister_course_root,
+            backup_target::validate_backup_target,
             video_stream::get_media_session,
             video_stream::get_lesson_url,
             course_scanner::canonicalize_course_root,

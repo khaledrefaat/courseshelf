@@ -10,11 +10,15 @@ import { errorMessage } from "@/features/library/add-course/folders";
 import { latestRequest } from "@/features/library/add-course/model";
 import { nativePicker } from "@/features/library/add-course/nativePicker";
 import { updateCourseCover } from "@/features/library/edit-cover/courseActions";
-import type { CourseSummary } from "@/lib/db/courseSummaries";
+import type { Course } from "@/lib/db/courses";
 
 export function useEditCover(
-	course: CourseSummary,
+	course: Pick<Course, "id" | "title" | "cover_path">,
 	onSaved: (path: string | null, warning: string | null) => void,
+	commit?: (
+		cover: PickedCover | null | undefined,
+	) => Promise<{ path: string | null; warning: string | null }>,
+	extraDirty = false,
 ) {
 	const [change, setChange] = useState<PickedCover | null | undefined>(
 		undefined,
@@ -82,7 +86,8 @@ export function useEditCover(
 		}
 	}
 	const dirty =
-		change !== undefined && (change !== null || course.cover_path !== null);
+		extraDirty ||
+		(change !== undefined && (change !== null || course.cover_path !== null));
 	async function save() {
 		if (
 			!dirty ||
@@ -96,11 +101,9 @@ export function useEditCover(
 		setSaving(true);
 		setError(null);
 		try {
-			const result = await updateCourseCover(
-				course.id,
-				course.cover_path,
-				change ?? null,
-			);
+			const result = commit
+				? await commit(change)
+				: await updateCourseCover(course.id, course.cover_path, change ?? null);
 			if (mounted.current) onSaved(result.path, result.warning);
 		} catch (cause) {
 			if (mounted.current) setError(errorMessage(cause));

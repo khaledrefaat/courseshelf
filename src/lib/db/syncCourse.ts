@@ -18,6 +18,7 @@ export type SyncResult =
 			scan: Awaited<ReturnType<typeof scanCourse>>;
 			added_count: number;
 			missing_count: number;
+			restored_count: number;
 			summary: CourseSummary;
 	  }
 	| { ok: false; code: SyncErrorCode; message: string };
@@ -58,7 +59,8 @@ async function runSync(courseId: number): Promise<SyncResult> {
 		const found = new Set(scan.lessons.map((lesson) => lesson.relative_path));
 		const known = new Set(previous.map((lesson) => lesson.relative_path));
 		const missing = previous.filter(
-			(lesson) => !found.has(lesson.relative_path),
+			(lesson) =>
+				!found.has(lesson.relative_path) && lesson.missing_at === null,
 		);
 		await lessons.upsertMany(courseId, scan.lessons);
 		await lessons.markMissing(
@@ -73,6 +75,10 @@ async function runSync(courseId: number): Promise<SyncResult> {
 				(lesson) => !known.has(lesson.relative_path),
 			).length,
 			missing_count: missing.length,
+			restored_count: previous.filter(
+				(lesson) =>
+					lesson.missing_at !== null && found.has(lesson.relative_path),
+			).length,
 			summary: await getCourseSummary(courseId),
 		};
 	} catch (error) {

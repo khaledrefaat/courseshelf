@@ -3,6 +3,7 @@ import { registerProgressFlush } from "@/features/course/closeProgress";
 import { trackPlayback } from "@/features/course/playbackTracking";
 import { firstPlay, playQuietly } from "@/features/course/progressActions";
 import { positionLabel } from "@/features/course/trackingRules";
+import { registerManagedPlayer } from "@/features/course-management/state";
 import type { OutlineLesson } from "@/lib/db/courseOutline";
 import { get, savePosition } from "@/lib/db/progress";
 import { waitForProgressWrites } from "@/lib/db/progressWrites";
@@ -77,6 +78,9 @@ export function LessonPlayer({
 		});
 		tracking.current = controller;
 		const unregister = registerProgressFlush(controller.flush);
+		const unregisterPlayer = registerManagedPlayer(courseId, () =>
+			video.pause(),
+		);
 		const hidden = () => {
 			if (document.hidden) controller.flush();
 		};
@@ -85,9 +89,10 @@ export function LessonPlayer({
 			controller.dispose();
 			tracking.current = null;
 			unregister();
+			unregisterPlayer();
 			document.removeEventListener("visibilitychange", hidden);
 		};
-	}, [source, savedPosition, lesson.id]);
+	}, [source, savedPosition, lesson.id, courseId]);
 	return (
 		<div>
 			{source ? (

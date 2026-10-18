@@ -66,6 +66,7 @@ export function createNotesController(deps: Dependencies) {
 		// Keep the failed-save warning until the newest draft really succeeds.
 		const write = () =>
 			previous.then(async () => {
+				if (drafts.get(lessonId) !== draft) return;
 				try {
 					const stored = await deps.write(lessonId, text);
 					draft.savedRevision = revision;
@@ -90,6 +91,19 @@ export function createNotesController(deps: Dependencies) {
 		return result;
 	}
 	const controller = {
+		discardCourse(courseId: number) {
+			const pending: Promise<void>[] = [];
+			for (const [id, draft] of drafts)
+				if (draft.courseId === courseId) {
+					clearTimeout(draft.timer);
+					pending.push(draft.tail);
+					drafts.delete(id);
+				}
+			courses.delete(courseId);
+			activeLessons.delete(courseId);
+			emit();
+			return Promise.all(pending).then(() => {});
+		},
 		subscribe(listener: () => void) {
 			listeners.add(listener);
 			return () => {
@@ -115,6 +129,7 @@ export function createNotesController(deps: Dependencies) {
 			state.pending = deps
 				.load(courseId)
 				.then((rows) => {
+					if (courses.get(courseId) !== state) return;
 					const stored = new Map(rows.map((row) => [row.lesson_id, row]));
 					for (const lesson of lessons) {
 						const old = drafts.get(lesson.id);

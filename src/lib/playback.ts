@@ -16,6 +16,12 @@ const registrations = new Map<number, RegistrationStatus>();
 let readiness: Promise<RegistrationStatus[]> | undefined;
 let session: MediaSession | undefined;
 
+export async function unregisterCourseRoot(courseId: number): Promise<void> {
+	await initializePlayback();
+	await invoke("unregister_course_root", { courseId });
+	registrations.delete(courseId);
+}
+
 // Undefined means startup has not completed, or the course has never been registered.
 export function getRegistrationStatus(
 	courseId: number,

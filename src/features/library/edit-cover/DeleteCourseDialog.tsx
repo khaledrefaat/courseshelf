@@ -1,5 +1,5 @@
 import { LoaderCircle } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -8,29 +8,46 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { removeCourse } from "@/features/course-management/actions";
 import { errorMessage } from "@/features/library/add-course/folders";
-import { deleteCourseFromLibrary } from "@/features/library/edit-cover/courseActions";
-import type { CourseSummary } from "@/lib/db/courseSummaries";
+import { type Course, removalCounts } from "@/lib/db/courses";
 
 export function DeleteCourseDialog({
 	course,
 	onCancel,
 	onDeleted,
 }: {
-	course: CourseSummary;
+	course: Pick<Course, "id" | "title">;
 	onCancel: () => void;
 	onDeleted: (warning: string | null) => void;
 }) {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const busy = useRef(false);
+	const [counts, setCounts] = useState<{
+		lessons: number;
+		notes: number;
+	} | null>(null);
+	useEffect(() => {
+		let active = true;
+		void removalCounts(course.id)
+			.then((value) => {
+				if (active) setCounts(value);
+			})
+			.catch((cause) => {
+				if (active) setError(errorMessage(cause));
+			});
+		return () => {
+			active = false;
+		};
+	}, [course.id]);
 	async function confirm() {
 		if (busy.current) return;
 		busy.current = true;
 		setSaving(true);
 		setError(null);
 		try {
-			const warning = await deleteCourseFromLibrary(course.id);
+			const warning = await removeCourse(course.id);
 			onDeleted(warning);
 		} catch (cause) {
 			setError(errorMessage(cause));
@@ -55,7 +72,7 @@ export function DeleteCourseDialog({
 			<DialogContent showCloseButton={false} className="p-6 sm:max-w-120">
 				<DialogHeader>
 					<DialogTitle className="text-xl font-bold">
-						Delete course?
+						Remove course?
 					</DialogTitle>
 					<DialogDescription>
 						Remove “{course.title}” from your library?
@@ -65,6 +82,11 @@ export function DeleteCourseDialog({
 					This permanently deletes its lessons, progress and notes from
 					Courseshelf. Your video folder and original images stay untouched.
 					This cannot be undone.
+				</p>
+				<p className="text-sm">
+					{counts
+						? `${counts.lessons} lessons and ${counts.notes} notes will be deleted (including missing lessons). Unsaved drafts will be discarded.`
+						: "Loading deletion counts…"}
 				</p>
 				{error && (
 					<p role="alert" className="text-sm text-destructive">
@@ -81,7 +103,8 @@ export function DeleteCourseDialog({
 						Cancel
 					</Button>
 					<Button
-						disabled={saving}
+						variant="destructive"
+						disabled={saving || !counts}
 						onClick={() => void confirm()}
 						className="h-10 gap-2 bg-destructive px-4 text-primary-foreground hover:bg-destructive/90"
 					>
@@ -91,7 +114,7 @@ export function DeleteCourseDialog({
 								className="size-4 animate-spin"
 							/>
 						)}
-						{saving ? "Deleting…" : "Delete course"}
+						{saving ? "Removing…" : "Remove course"}
 					</Button>
 				</div>
 			</DialogContent>

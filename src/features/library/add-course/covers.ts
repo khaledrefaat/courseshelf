@@ -57,6 +57,8 @@ export async function saveCover(
 export async function writeCourseCover(
 	courseId: number,
 	cover: PickedCover,
+	commit: (path: string) => Promise<void> = (path) =>
+		updateCover(courseId, path),
 ): Promise<string> {
 	let createdPath: string | undefined;
 	try {
@@ -76,7 +78,7 @@ export async function writeCourseCover(
 				createdPath = path;
 			throw error;
 		}
-		await updateCover(courseId, path);
+		await commit(path);
 		return path;
 	} catch (error) {
 		let warning = `The cover wasn't saved: ${errorMessage(error)}`;

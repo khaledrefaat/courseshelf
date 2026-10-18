@@ -152,6 +152,26 @@ impl VideoStream {
         Ok(result)
     }
 
+    pub fn unregister(&self, course_id: i64) -> Result<(), MediaError> {
+        self.shared
+            .roots
+            .write()
+            .map_err(|_| failure("SERVER_ERROR", "Root registry unavailable"))?
+            .remove(&course_id);
+        Ok(())
+    }
+
+    pub fn registered_paths(&self) -> Result<Vec<PathBuf>, MediaError> {
+        Ok(self
+            .shared
+            .roots
+            .read()
+            .map_err(|_| failure("SERVER_ERROR", "Root registry unavailable"))?
+            .values()
+            .cloned()
+            .collect())
+    }
+
     pub fn lesson_url(&self, course_id: i64, relative_path: &str) -> Result<String, MediaError> {
         resolve_lesson(&self.shared, course_id, relative_path)?;
         let encoded = relative_path
@@ -524,6 +544,14 @@ pub fn register_course_roots(
 ) -> Result<Vec<Registration>, MediaError> {
     let scope = app.fs_scope();
     state.register_all(roots, &|path| scope.is_allowed(path))
+}
+
+#[tauri::command]
+pub fn unregister_course_root(
+    state: tauri::State<'_, VideoStream>,
+    course_id: i64,
+) -> Result<(), MediaError> {
+    state.unregister(course_id)
 }
 
 #[tauri::command]

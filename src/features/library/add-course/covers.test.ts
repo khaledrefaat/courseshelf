@@ -17,7 +17,11 @@ import {
 	writeFile,
 } from "@tauri-apps/plugin-fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { readCover, saveCover } from "@/features/library/add-course/covers";
+import {
+	readCover,
+	saveCover,
+	writeCourseCover,
+} from "@/features/library/add-course/covers";
 import { maxCoverBytes } from "@/features/library/add-course/model";
 import { updateCover } from "@/lib/db/courses";
 
@@ -94,6 +98,24 @@ it("cleans up a partial write but never removes a colliding existing file", asyn
 	expect(await saveCover(3, cover)).toContain("File exists");
 	expect(remove).not.toHaveBeenCalled();
 	expect(updateCover).not.toHaveBeenCalled();
+});
+it("uses the edit's atomic commit callback and removes only the new copy if that update fails", async () => {
+	const commit = vi.fn(async () => {
+		throw new Error("title+cover DB update failed");
+	});
+	await expect(writeCourseCover(3, cover, commit)).rejects.toThrow(
+		"title+cover DB update failed",
+	);
+	expect(updateCover).not.toHaveBeenCalled();
+	expect(commit).toHaveBeenCalledWith(
+		"/app/data/covers/3-12345678-1234-1234-1234-123456789abc.jpg",
+	);
+	expect(remove).toHaveBeenCalledWith(
+		"/app/data/covers/3-12345678-1234-1234-1234-123456789abc.jpg",
+	);
+	expect(vi.mocked(writeFile).mock.invocationCallOrder[0]).toBeLessThan(
+		commit.mock.invocationCallOrder[0],
+	);
 });
 it("creates covers and missing app-data parents on a clean install (real filesystem adapter)", async () => {
 	mkdirSync(nodeJoin(process.cwd(), "node_modules/.cache"), {

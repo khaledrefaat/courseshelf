@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db/db";
+import { waitForProgressWrites } from "@/lib/db/progressWrites";
 
 export interface Course {
 	id: number;
@@ -78,4 +79,36 @@ export async function updateCover(
 	);
 	if (result.rowsAffected === 0)
 		throw new Error("Course not found; the cover was not saved.");
+}
+
+export async function updateDetails(
+	id: number,
+	title: string,
+	coverPath: string | null,
+): Promise<void> {
+	const db = await getDb();
+	const result = await db.execute(
+		"UPDATE courses SET title=$1, cover_path=$2 WHERE id=$3",
+		[title, coverPath, id],
+	);
+	if (!result.rowsAffected) throw new Error("Course no longer exists.");
+}
+export async function updateRoot(id: number, root: string): Promise<void> {
+	const db = await getDb();
+	const result = await db.execute(
+		"UPDATE courses SET root_path=$1 WHERE id=$2",
+		[root, id],
+	);
+	if (!result.rowsAffected) throw new Error("Course no longer exists.");
+}
+export async function removalCounts(
+	id: number,
+): Promise<{ lessons: number; notes: number }> {
+	await waitForProgressWrites();
+	const db = await getDb();
+	const [row] = await db.select<{ lessons: number; notes: number }[]>(
+		`SELECT COUNT(*) AS lessons, COUNT(n.lesson_id) AS notes FROM lessons l LEFT JOIN notes n ON n.lesson_id=l.id WHERE l.course_id=$1`,
+		[id],
+	);
+	return row;
 }

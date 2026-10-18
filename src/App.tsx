@@ -11,6 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CoursePage } from "@/features/course/CoursePage";
+import { BackupMenu } from "@/features/course-management/BackupMenu";
+import { ManagementHost } from "@/features/course-management/ManagementHost";
+import { useManagement } from "@/features/course-management/state";
 import { AddCourseDialog } from "@/features/library/add-course/AddCourseDialog";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { NotesWarnings } from "@/features/notes/NotesWarnings";
@@ -20,6 +23,7 @@ const VideoSpike = import.meta.env.DEV
 	: null;
 
 function Shell() {
+	const management = useManagement();
 	const [search, setSearch] = useState("");
 	const [adding, setAdding] = useState(false);
 	const [revision, setRevision] = useState(0);
@@ -29,10 +33,13 @@ function Shell() {
 	return (
 		<div
 			className={
-				courseRoute ? "h-dvh overflow-hidden" : "flex min-h-dvh flex-col"
+				courseRoute
+					? "flex h-dvh flex-col overflow-hidden"
+					: "flex min-h-dvh flex-col"
 			}
 		>
 			<NotesWarnings />
+			<ManagementHost />
 			{!courseRoute && (
 				<header className="border-b bg-card">
 					<div className="mx-auto flex min-h-18 max-w-360 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-10">
@@ -59,12 +66,14 @@ function Shell() {
 							/>
 						</div>
 						<Button
+							disabled={management.busy}
 							className="h-11 gap-2 rounded-lg px-5"
 							onClick={() => setAdding(true)}
 						>
 							<Plus />
 							Add course
 						</Button>
+						<BackupMenu />
 					</div>
 				</header>
 			)}
@@ -102,7 +111,9 @@ function Shell() {
 							<LibraryPage
 								key={revision}
 								search={search}
-								onAddCourse={() => setAdding(true)}
+								onAddCourse={() => {
+									if (!management.busy) setAdding(true);
+								}}
 							/>
 						}
 					/>

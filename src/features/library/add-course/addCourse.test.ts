@@ -39,6 +39,7 @@ beforeEach(() => {
 		scan,
 		added_count: 1,
 		missing_count: 0,
+		restored_count: 0,
 		summary: { total_count: 1, completed_count: 0 },
 	});
 	vi.mocked(registerCourseRoot).mockResolvedValue({

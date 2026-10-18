@@ -8,7 +8,7 @@ export function CourseCover({
 	children,
 	className = "",
 }: {
-	course: CourseSummary;
+	course: Pick<CourseSummary, "id" | "title" | "cover_path">;
 	children?: React.ReactNode;
 	className?: string;
 }) {
