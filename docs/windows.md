@@ -18,8 +18,9 @@ The installer is unsigned. Unknown publisher/SmartScreen warnings or policy bloc
 are possible; do not disable Windows security globally to install it.
 There is no automatic updater. Download and install a new version when available.
 
-A brief startup-window animation has been reported and deferred for investigation;
-the maintainer reports the app works afterward.
+The published 0.2.0 preview can briefly show black/white rectangles at startup;
+the maintainer reports the app works afterward. The startup visibility change
+below requires a newly built installer and still needs real Windows verification.
 
 [Release notes and checksum](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.2.0)
 are available on GitHub. To check the downloaded installer in PowerShell:
@@ -58,6 +59,26 @@ download bootstrapper; Ubuntu config, identity, CSP and capabilities stay unchan
 For each new release, use the source commit actually built by the successful run.
 Attach the extracted setup .exe and checksum to a release draft before publishing.
 Immutable releases cannot have their assets replaced afterward.
+
+## Startup visibility in new builds
+
+Only Windows starts the main window hidden. After the themed React shell mounts,
+it signals Rust to reveal the window once; database loading uses the existing
+library skeleton, not a separate splash screen. The signal waits for two animation
+frame opportunities, with a 200 ms fallback because hidden WebView2 windows may
+suspend animation frames. This is not proof that WebView2 has composited a frame.
+
+An independent native five-second fallback reveals the window if JavaScript or
+IPC fails, so it remains visible and closable even if the page itself is broken.
+Neither path waits for the database or course registration. Repeated signals and
+the timeout do not re-show/refocus a window that has already been revealed and
+then minimized. A second launch waits for initial readiness before using the
+existing single-instance focus behavior.
+
+The window still starts maximized, with the same unmaximized size and minimum
+size. Ubuntu startup, playback, CSP and capabilities are unchanged. This mitigates
+exposing initial WebView2 painting; only testing the rebuilt app can establish
+whether it removes the reported rectangles.
 
 ## Data and portability
 
@@ -106,6 +127,15 @@ Use disposable copies of course folders for missing-file/relocation checks.
 - Launch a second copy: it should focus the first. Check same-version reinstall
   retains data. Uninstall from **Settings → Apps → Installed apps → Courseshelf**;
   do not choose any user-data removal option unless that is intentional.
+- Fully quit and launch repeatedly in light and dark system themes. Check that
+  the first visible content is the themed shell/skeleton, without black/white
+  rectangles. Test cold and warm launches, including a second launch during startup.
+- Minimize immediately after launch and wait over five seconds: the timeout must
+  not reopen/refocus the window. Unmaximize and check the 1280x800 default and
+  960x640 minimum; startup must remain maximized, not fullscreen.
+- In a disposable debug build, prevent the readiness IPC from succeeding and
+  verify the native fallback reveals the window after about five seconds. Native
+  scheduling can delay it; this is a fallback, not a hard real-time deadline.
 
 Automated tests are not a substitute for real native dialogs, codecs and WebView2
 rendering. The maintainer's successful test applies to that build/setup.

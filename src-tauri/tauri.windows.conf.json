@@ -1,5 +1,18 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
+	"app": {
+		"windows": [
+			{
+				"title": "Courseshelf",
+				"maximized": true,
+				"width": 1280,
+				"height": 800,
+				"minWidth": 960,
+				"minHeight": 640,
+				"visible": false
+			}
+		]
+	},
 	"bundle": {
 		"targets": ["nsis"],
 		"windows": {

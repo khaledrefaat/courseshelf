@@ -133,6 +133,7 @@ Custom invokes (not plugin ACL permission names):
 
 | Command | Frontend call site | Backend restriction |
 | --- | --- | --- |
+| `frontend_ready` | `components/StartupReady.tsx` after shell mount | Main window only; Windows reveal-once startup gate, no-op on other platforms. |
 | `register_course_roots` | `lib/playback.ts` startup | Canonical roots inside persisted fs scope. |
 | `register_course_root` | `lib/playback.ts` add/locate | Same root validation. |
 | `unregister_course_root` | `lib/playback.ts` removal | Removes only in-memory registration. |

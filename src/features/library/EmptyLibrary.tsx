@@ -65,7 +65,7 @@ export function EmptyLibrary({ onAddCourse }: { onAddCourse?: () => void }) {
 				track every lesson you finish.
 			</p>
 			<Button
-				className="mt-7 h-14 gap-2 rounded-lg px-9 text-base"
+				className="mt-7 h-14 cursor-pointer gap-2 rounded-lg px-9 text-base"
 				onClick={onAddCourse}
 			>
 				<Plus />

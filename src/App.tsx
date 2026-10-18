@@ -62,7 +62,7 @@ function Shell() {
 						</div>
 						<Button
 							disabled={management.busy}
-							className="h-11 gap-2 rounded-lg bg-card px-5 text-foreground hover:bg-card/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/80"
+							className="h-11 cursor-pointer gap-2 rounded-lg bg-card px-5 text-foreground hover:bg-card/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/80"
 							onClick={() => setAdding(true)}
 						>
 							<Plus />

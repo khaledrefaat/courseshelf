@@ -2,6 +2,7 @@ import { CSPProvider } from "@base-ui/react/csp-provider";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
+import { StartupReady } from "@/components/StartupReady";
 import "@/index.css";
 import { installCloseFlush } from "@/features/course/closeProgress";
 import { initializePlayback, playbackErrorMessage } from "@/lib/playback";
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 			}
 		>
 			<App />
+			<StartupReady />
 		</CSPProvider>
 	</React.StrictMode>,
 );

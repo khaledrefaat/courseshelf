@@ -76,6 +76,10 @@ and the folder-tree sidebar.
 - No asset protocol, broad home-directory grants, external-link opener or remote fonts/scripts.
   Folder access comes from persisted user-selected grants; cover writes stay in app data/covers.
 - Register single-instance first, before database plugins. Release builds do not enable devtools.
+- Windows alone starts hidden via its platform config. The mounted themed shell signals
+  `frontend_ready`; a native five-second fallback reveals it if JS/IPC fails. Keep reveal
+  idempotent so remounts/timeouts never reopen a minimized window. Do not wait for DB/root
+  registration, change maximization, or add frontend show/focus permissions for this.
 - Keep Tauri capabilities minimal. Ask before adding permissions.
 
 ## Working agreement

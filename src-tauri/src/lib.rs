@@ -1,6 +1,7 @@
 mod backup_target;
 mod course_scanner;
 mod fs_links;
+mod startup;
 mod video_stream;
 mod window_state;
 
@@ -11,6 +12,10 @@ pub fn run() {
     tauri::Builder::default()
         // Must run before plugins open the shared database or restore folder grants.
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            #[cfg(windows)]
+            if startup::waiting(app) {
+                return;
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.unminimize();
@@ -18,6 +23,8 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            #[cfg(windows)]
+            startup::install(app.handle())?;
             app.manage(video_stream::VideoStream::new()?);
             // Inspect bundled production CSP without granting frontend devtools access.
             #[cfg(debug_assertions)]
@@ -69,6 +76,7 @@ pub fn run() {
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            startup::frontend_ready,
             window_state::actual_window_fullscreen,
             video_stream::register_course_roots,
             video_stream::register_course_root,

@@ -4,12 +4,19 @@ import { expect, it } from "vitest";
 const read = (path: string) =>
 	readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-it("limits the Windows override to packaging, leaving Linux, identity and security alone", () => {
+it("limits the Windows override to startup visibility and packaging, keeping Linux/identity/security", () => {
 	const base = JSON.parse(read("src-tauri/tauri.conf.json"));
 	const windows = JSON.parse(read("src-tauri/tauri.windows.conf.json"));
 	expect(base.bundle.targets).toEqual(["deb"]);
 	expect(base.identifier).toBe("com.khaled.courseshelf");
-	expect(Object.keys(windows).sort()).toEqual(["$schema", "bundle"]);
+	expect(Object.keys(windows).sort()).toEqual(["$schema", "app", "bundle"]);
+	expect(Object.keys(windows.app)).toEqual(["windows"]);
+	expect(windows.app.windows).toHaveLength(1);
+	const { visible, ...window } = windows.app.windows[0];
+	expect(visible).toBe(false);
+	// Platform arrays replace the base array: every existing field must be kept.
+	expect(window).toEqual(base.app.windows[0]);
+	expect(base.app.windows[0].visible ?? true).toBe(true);
 	expect(windows.bundle.targets).toEqual(["nsis"]);
 	expect(windows.bundle.windows.nsis.installMode).toBe("currentUser");
 	expect(windows.bundle.windows.webviewInstallMode).toEqual({
