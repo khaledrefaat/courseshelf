@@ -17,6 +17,7 @@ import { errorMessage } from "@/features/library/add-course/folders";
 import { ContinueCard } from "@/features/library/ContinueCard";
 import { CourseCard } from "@/features/library/CourseCard";
 import { EmptyLibrary } from "@/features/library/EmptyLibrary";
+import { LibrarySkeleton } from "@/features/library/LibrarySkeleton";
 import {
 	type CourseSort,
 	continueCourse,
@@ -59,12 +60,7 @@ export function LibraryPage({
 				{error}
 			</main>
 		);
-	if (!courses)
-		return (
-			<main className="p-10" role="status">
-				Loading your library…
-			</main>
-		);
+	if (!courses) return <LibrarySkeleton />;
 	async function toggleArchive(course: CourseSummary) {
 		try {
 			await archiveCourse(course.id, course.archived_at === null);

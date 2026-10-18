@@ -108,3 +108,15 @@ it("does not confuse a load failure with an empty database", () => {
 	expect(render()).toContain("Database unavailable");
 	expect(render()).not.toContain("Your shelf is empty");
 });
+it("shows a skeleton with a hidden loading status while courses load", () => {
+	vi.mocked(useLibrary).mockReturnValue({
+		courses: null,
+		error: null,
+		registrationError: null,
+		registrations: new Map(),
+	});
+	const html = render();
+	expect(html).toContain("animate-pulse");
+	expect(html).toContain("Loading your library");
+	expect(html).not.toContain("Your shelf is empty");
+});

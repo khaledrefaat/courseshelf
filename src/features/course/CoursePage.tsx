@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { CourseSidebar } from "@/features/course/CourseSidebar";
+import { CourseSkeleton } from "@/features/course/CourseSkeleton";
 import { LessonPlayer } from "@/features/course/LessonPlayer";
 import {
   buildOutline,
@@ -241,12 +242,7 @@ function LoadedCourse({
   } = useCourse(courseId);
   const previouslyViewed = useRef<number | null>(null);
   if (error) return <CourseMessage message={error} />;
-  if (!data)
-    return (
-      <p role="status" className="p-10">
-        Loading course…
-      </p>
-    );
+  if (!data) return <CourseSkeleton />;
   const destination = courseDestination(
     data.outline,
     rawLessonId,
