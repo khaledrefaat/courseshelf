@@ -115,6 +115,36 @@ fn value<'a>(response: &'a ResponseBox, name: &str) -> Option<&'a str> {
 }
 
 #[test]
+fn production_webview_origin_keeps_host_validation_and_no_cors_headers() {
+    let fixture = Fixture::new();
+    fixture.file("lesson.mp4");
+    for host in [fixture.media.address.to_string(), "tauri.localhost".into()] {
+        let request: Request = TestRequest::new()
+            .with_path(&fixture.route("lesson.mp4"))
+            .with_header(header("Host", &host))
+            .with_header(header("Origin", "tauri://localhost"))
+            .into();
+        let response = response_for(&request, fixture.media.address, &fixture.media.shared);
+        assert_eq!(
+            response.status_code().0,
+            if host == fixture.media.address.to_string() {
+                200
+            } else {
+                403
+            }
+        );
+        assert!(response.headers().iter().all(|header| {
+            !header
+                .field
+                .as_str()
+                .as_str()
+                .to_ascii_lowercase()
+                .starts_with("access-control-")
+        }));
+    }
+}
+
+#[test]
 fn registration_reports_every_root_and_failed_registration_revokes_previous_access() {
     let fixture = Fixture::new();
     let other = Fixture::new();

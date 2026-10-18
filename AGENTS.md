@@ -58,9 +58,16 @@ and the folder-tree sidebar.
 - Biome handles formatting and linting. Don't change `biome.json` without asking.
 - Add a dependency only if necessary, and say why.
 
-## Security (revisit before the real app)
-- The asset protocol scope is currently `$HOME/**` and CSP is null, for the video spike only.
-  Narrow the scope to user-selected course folders and set a proper CSP once the spike is done.
+## Security
+- Production CSP restricts scripts, styles and fonts to bundled assets, images to bundled assets
+  and blob URLs, media to `http://127.0.0.1:*`, and connections to Tauri IPC. Other sources are denied.
+- Keep script-src free of unsafe-inline and unsafe-eval, including development. Tauri's automatic
+  CSP hashes/nonces stay enabled; Base UI receives a style nonce from the bundled HTML anchor.
+  Inline style attributes are allowed for gradients and Base UI positioning. devCsp additionally
+  permits Vite styles and localhost HMR; it is not the packaged-build policy.
+- No asset protocol, broad home-directory grants, external-link opener or remote fonts/scripts.
+  Folder access comes from persisted user-selected grants; cover writes stay in app data/covers.
+- Register single-instance first, before database plugins. Release builds do not enable devtools.
 - Keep Tauri capabilities minimal. Ask before adding permissions.
 
 ## Working agreement
@@ -74,13 +81,14 @@ and the folder-tree sidebar.
 
 ## Video playback
 - WebKitGTK on Linux rejects Tauri's `asset:` scheme for media. Playback uses a localhost
-  streaming server in `src-tauri` (127.0.0.1, random port, token per registered file or course
-  folder, byte-range support). Don't switch back to `convertFileSrc` or the asset protocol.
+  streaming server in `src-tauri` (127.0.0.1, random port, session token per app launch,
+  registered course roots, byte-range support). Don't switch back to `convertFileSrc` or the asset protocol.
 - The server may only serve files inside registered course folders (canonicalize paths, reject
   symlink escapes and `..`).
 - Ask before changing the playback server, its tokens, or `tauri.conf.json` CSP/capabilities.
-- CSP is currently null. Set a real CSP (with `media-src` for the localhost server) before the
-  real app ships.
+- Production uses `tauri://localhost` on Linux. Media requests must retain the exact loopback
+  Host check, token validation and absence of permissive CORS headers. Native video loads use
+  no-CORS mode; do not add crossOrigin to the video element without reviewing the server.
 
 
 - Rescanning never deletes progress or notes. Lessons whose files disappeared are marked

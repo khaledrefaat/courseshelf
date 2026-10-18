@@ -1,3 +1,4 @@
+import { CSPProvider } from "@base-ui/react/csp-provider";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
@@ -19,6 +20,13 @@ void initializePlayback()
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
-		<App />
+		<CSPProvider
+			nonce={
+				document.querySelector<HTMLStyleElement>("#courseshelf-style-nonce")
+					?.nonce || undefined
+			}
+		>
+			<App />
+		</CSPProvider>
 	</React.StrictMode>,
 );

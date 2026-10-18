@@ -4,9 +4,11 @@
 	"description": "Capability for the main window",
 	"windows": ["main"],
 	"permissions": [
-		"core:default",
+		"core:path:allow-resolve-directory",
+		"core:path:allow-join",
+		"core:event:allow-listen",
+		"core:event:allow-unlisten",
 		"core:window:allow-destroy",
-		"opener:default",
 		"dialog:allow-open",
 		"dialog:allow-save",
 		"fs:deny-default",
