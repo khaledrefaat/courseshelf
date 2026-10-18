@@ -3,6 +3,7 @@ import {
 	queueProgressWrite,
 	waitForProgressWrites,
 } from "@/lib/db/progressWrites";
+import { displayTitle } from "@/lib/displayTitle";
 
 export interface Note {
 	lesson_id: number;
@@ -65,5 +66,7 @@ export async function listByCourse(courseId: number): Promise<CourseNote[]> {
 		ORDER BY l.sort_order, l.id`,
 		[courseId],
 	);
-	return rows.filter((row) => !isEmptyNote(row.content));
+	return rows
+		.filter((row) => !isEmptyNote(row.content))
+		.map((row) => ({ ...row, title: displayTitle(row.title) }));
 }

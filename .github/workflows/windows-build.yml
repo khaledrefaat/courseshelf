@@ -1,0 +1,63 @@
+name: Windows installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Check and build Windows x64
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Preserve repository LF formatting on Windows
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Locate pnpm store
+        id: pnpm-store
+        shell: pwsh
+        run: '"path=$(pnpm store path --silent)" >> $env:GITHUB_OUTPUT'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('.nvmrc', 'pnpm-lock.yaml', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Set up Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+          rustup target add x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: pnpm check:rust
+      - name: Build NSIS installer (Windows override is loaded automatically)
+        run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis -- --locked
+      - name: Hash installer
+        shell: pwsh
+        run: |
+          Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Set-Content -Encoding ascii "$($_.FullName).sha256"
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Courseshelf-windows-x64-${{ github.run_number }}
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 14

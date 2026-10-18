@@ -2,7 +2,13 @@ export const maxCoverBytes = 10 * 1024 * 1024;
 export type CoverKind = "png" | "jpg" | "webp";
 
 export function titleFromFolder(path: string): string {
-	return (path.replace(/\/+$/, "").split("/").pop() ?? "")
+	const windows = /^[a-z]:[\\/]|^[\\/]{2}/i.test(path);
+	return (
+		path
+			.replace(windows ? /[\\/]+$/ : /\/+$/, "")
+			.split(windows ? /[\\/]/ : /\//)
+			.pop() ?? ""
+	)
 		.replace(/[-_]/g, " ")
 		.trim();
 }

@@ -72,7 +72,8 @@ pub struct VideoStream {
 impl VideoStream {
     pub fn new() -> io::Result<Self> {
         let mut secret = [0_u8; 32];
-        File::open("/dev/urandom")?.read_exact(&mut secret)?;
+        getrandom::fill(&mut secret)
+            .map_err(|_| io::Error::other("Could not obtain secure playback randomness"))?;
         let token = secret.iter().map(|byte| format!("{byte:02x}")).collect();
         let server = Arc::new(
             Server::http((Ipv4Addr::LOCALHOST, 0))
@@ -295,7 +296,7 @@ fn check_components(root: &Path, relative: &str) -> Result<(), MediaError> {
                 "Lesson or course folder is missing or unreadable",
             )
         })?;
-        if metadata.file_type().is_symlink() {
+        if crate::fs_links::is_link(&metadata) {
             return Err(failure("INVALID_PATH", "Symlinks are not allowed"));
         }
     }

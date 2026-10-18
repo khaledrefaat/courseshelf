@@ -24,6 +24,14 @@ describe("add course pure functions", () => {
 	it("keeps folder name casing, handles trailing slash and Arabic, replaces separators", () => {
 		expect(titleFromFolder("/courses/My-SQL_Course/")).toBe("My SQL Course");
 		expect(titleFromFolder("/courses/العربية_SQL")).toBe("العربية SQL");
+		expect(titleFromFolder("/courses/Unix\\Course/")).toBe("Unix\\Course");
+		for (const root of [
+			"C:\\Courses\\My-SQL_Course\\",
+			"\\\\?\\C:\\Courses\\My-SQL_Course",
+			"\\\\server\\courses\\My-SQL_Course\\",
+		])
+			expect(titleFromFolder(root)).toBe("My SQL Course");
+		expect(titleFromFolder("D:\\Courses\\العربية_SQL")).toBe("العربية SQL");
 	});
 	it("formats counts by extension and excludes hidden/common junk from warnings", () => {
 		const scan = buildCourseStructure([

@@ -28,6 +28,8 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tiny_http = { version = "0.12", default-features = false }
 percent-encoding = "2"
 subtle = "2"
+# OS-backed secure randomness on Linux and Windows; already present transitively.
+getrandom = "0.4"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already used transitively by Tauri; read actual GDK state rather than Tao's cached request.

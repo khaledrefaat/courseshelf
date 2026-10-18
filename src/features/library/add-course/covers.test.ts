@@ -117,6 +117,17 @@ it("uses the edit's atomic commit callback and removes only the new copy if that
 		commit.mock.invocationCallOrder[0],
 	);
 });
+it.each([80, 183])(
+	"never deletes a colliding cover on Windows (OS error %s)",
+	async (code) => {
+		vi.mocked(writeFile).mockRejectedValue(
+			new Error(`Localized Windows error (os error ${code})`),
+		);
+		expect(await saveCover(3, cover)).toContain(`os error ${code}`);
+		expect(remove).not.toHaveBeenCalled();
+		expect(updateCover).not.toHaveBeenCalled();
+	},
+);
 it("creates covers and missing app-data parents on a clean install (real filesystem adapter)", async () => {
 	mkdirSync(nodeJoin(process.cwd(), "node_modules/.cache"), {
 		recursive: true,

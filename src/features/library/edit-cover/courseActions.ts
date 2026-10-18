@@ -5,6 +5,7 @@ import {
 	writeCourseCover,
 } from "@/features/library/add-course/covers";
 import { errorMessage } from "@/features/library/add-course/folders";
+import { resolveCoverPath } from "@/lib/cover-paths";
 import {
 	delete as deleteCourse,
 	getById,
@@ -22,17 +23,13 @@ export function managedCoverPath(
 ): string | null {
 	if (!storedPath || !Number.isSafeInteger(courseId) || courseId < 1)
 		return null;
-	const root = `${dataDir.replace(/\/$/, "")}/covers/`;
-	const name = storedPath.startsWith(root)
-		? storedPath.slice(root.length)
-		: storedPath.startsWith("/")
-			? ""
-			: storedPath.replace(/^covers\//, "");
+	const resolved = resolveCoverPath(storedPath, dataDir);
+	if (!resolved) return null;
 	return new RegExp(
 		`^${courseId}-[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}[.](png|jpg|webp)$`,
 		"i",
-	).test(name)
-		? root + name
+	).test(resolved.relative)
+		? resolved.path
 		: null;
 }
 

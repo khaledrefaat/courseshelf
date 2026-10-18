@@ -111,6 +111,15 @@ fn scan(root: &Path, allowed: &impl Fn(&Path) -> bool) -> Result<FolderScan, Sca
                 result.skipped_symlink_count += 1;
                 continue;
             }
+            #[cfg(windows)]
+            if crate::fs_links::is_link(
+                &entry
+                    .metadata()
+                    .map_err(|error| ScanError::new("SCAN_FAILED", error))?,
+            ) {
+                result.skipped_symlink_count += 1;
+                continue;
+            }
             let name = entry
                 .file_name()
                 .into_string()
@@ -270,5 +279,29 @@ mod tests {
         )
         .unwrap();
         assert_eq!(scan(&fixture.0, &|_| true).unwrap_err().code, "SCAN_FAILED");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn skips_internal_external_and_loop_junctions_and_normalizes_relative_paths() {
+        let fixture = Fixture::new();
+        let outside = Fixture::new();
+        fs::create_dir_all(fixture.0.join("القسم الأول/Nested")).unwrap();
+        fs::write(
+            fixture.0.join("القسم الأول/Nested/lesson # % +.mp4"),
+            b"test",
+        )
+        .unwrap();
+        fs::write(outside.0.join("outside.mp4"), b"test").unwrap();
+        crate::fs_links::test_junction(&fixture.0.join("القسم الأول"), &fixture.0.join("internal"));
+        crate::fs_links::test_junction(&outside.0, &fixture.0.join("escape"));
+        crate::fs_links::test_junction(&fixture.0, &fixture.0.join("loop"));
+        let result = scan(&fixture.0, &|path| path.starts_with(&fixture.0)).unwrap();
+        assert_eq!(
+            result.relative_paths,
+            ["القسم الأول/Nested/lesson # % +.mp4"]
+        );
+        assert_eq!(result.skipped_symlink_count, 3);
+        assert_eq!(result.root_path, fixture.0.to_str().unwrap());
     }
 }

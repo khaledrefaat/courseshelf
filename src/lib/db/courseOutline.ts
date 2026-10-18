@@ -1,6 +1,7 @@
 import type { Course } from "@/lib/db/courses";
 import { getDb } from "@/lib/db/db";
 import { waitForProgressWrites } from "@/lib/db/progressWrites";
+import { displayTitle } from "@/lib/displayTitle";
 
 export interface OutlineLesson {
 	id: number;
@@ -53,7 +54,7 @@ export async function getCourseOutline(
 						{
 							id: row.lesson_id,
 							course_id: id,
-							title: row.lesson_title,
+							title: displayTitle(row.lesson_title),
 							relative_path: row.relative_path,
 							sort_order: row.sort_order,
 							completed: row.completed === 1,

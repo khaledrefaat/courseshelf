@@ -45,6 +45,12 @@ CI in `.github/workflows/ci.yml` checks pushes and pull requests. Frontend and R
 jobs run separately on Ubuntu 24.04, cache pnpm/Cargo, and have read-only repository
 permissions. CI does not build/publish packages or deploy anything.
 
+A separate manual-only workflow, `.github/workflows/windows-build.yml`, checks
+and builds a Windows x64 NSIS installer as a downloadable Actions artifact. It
+does not publish a release. `src-tauri/tauri.windows.conf.json` is loaded only for
+Windows; the base Linux `.deb` target and all CSP/capability settings are unchanged.
+See [Windows build and testing](windows.md) before sharing a Windows installer.
+
 An optional AppImage can be attempted after the release build:
 
 ```sh

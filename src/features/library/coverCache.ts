@@ -1,5 +1,6 @@
 import { appDataDir } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { resolveCoverPath } from "@/lib/cover-paths";
 
 interface Entry {
 	promise: Promise<string | null>;
@@ -32,21 +33,9 @@ export function loadCover(path: string): Promise<string | null> {
 	if (existing) return existing.promise;
 	const entry: Entry = { disposed: false, promise: Promise.resolve(null) };
 	entry.promise = (async () => {
-		const root = `${(await appDataDir()).replace(/\/$/, "")}/covers/`;
-		const fullPath = path.startsWith("/")
-			? path
-			: `${root}${path.replace(/^covers\//, "")}`;
-		if (
-			!fullPath.startsWith(root) ||
-			fullPath
-				.slice(root.length)
-				.split("/")
-				.some(
-					(part) =>
-						!part || part === "." || part === ".." || part.includes("\\"),
-				)
-		)
-			return null;
+		const resolved = resolveCoverPath(path, await appDataDir());
+		if (!resolved) return null;
+		const fullPath = resolved.path;
 		const extension = fullPath.split(".").pop()?.toLowerCase();
 		const mime = (
 			{

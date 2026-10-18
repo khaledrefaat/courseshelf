@@ -1,5 +1,6 @@
 mod backup_target;
 mod course_scanner;
+mod fs_links;
 mod video_stream;
 mod window_state;
 

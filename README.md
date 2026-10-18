@@ -60,6 +60,15 @@ Nothing is changed in your shell profile or system environment. Non-Linux
 platforms are unaffected.
 See [release troubleshooting](docs/release.md#player-keyboard-and-fullscreen-checks).
 
+## Windows test installer
+
+An optional, manually triggered GitHub Actions workflow builds an unsigned x64
+setup `.exe` on a Windows runner. No Rust/Visual Studio installation is needed on
+your own Windows computer to test it. Download the artifact, extract it and run
+the installer; WebView2 may require an internet download if not already installed.
+Windows runtime behavior still needs verification before sharing with friends.
+See [Windows build, installation and test steps](docs/windows.md).
+
 ## How it works
 
 The native directory picker grants access to a selected folder. A strict Rust

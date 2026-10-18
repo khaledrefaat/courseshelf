@@ -63,6 +63,25 @@ it("saves replacement before deleting the old app-owned cover", async () => {
 		vi.mocked(remove).mock.invocationCallOrder[0],
 	);
 });
+it("recognizes Windows managed covers but never outside paths, traversal or another course", () => {
+	const root = "C:\\Users\\Khaled\\AppData\\Roaming\\com.khaled.courseshelf";
+	const expected = `${root}\\covers\\${name}`;
+	for (const path of [
+		expected,
+		`covers\\${name}`,
+		name,
+		expected.replace(/\\/g, "/"),
+	])
+		expect(managedCoverPath(7, path, root)).toBe(expected);
+	for (const path of [
+		`${root}\\covers\\..\\${name}`,
+		`D:\\courses\\${name}`,
+		`${expected}:stream`,
+		expected.replace("7-", "8-"),
+		`${root}\\covers\\sub\\${name}`,
+	])
+		expect(managedCoverPath(7, path, root)).toBeNull();
+});
 it("preserves the previous file when saving a new cover fails", async () => {
 	vi.mocked(writeCourseCover).mockRejectedValue(
 		new Error("The cover wasn't saved: DB locked"),

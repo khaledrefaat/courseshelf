@@ -49,7 +49,7 @@ export function AddCourseDialog({
 				className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl p-6 sm:max-w-170 sm:p-8"
 			>
 				<DialogHeader>
-					<DialogTitle className="text-2xl font-bold leading-tight">
+					<DialogTitle className="text-2xl font-bold leading-tight cursor-pointer">
 						Add course
 					</DialogTitle>
 					<DialogDescription>

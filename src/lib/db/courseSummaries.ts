@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { waitForProgressWrites } from "@/lib/db/progressWrites";
+import { displayTitle } from "@/lib/displayTitle";
 
 export interface CourseSummary {
 	id: number;
@@ -18,7 +19,7 @@ export async function listCourseSummaries(): Promise<CourseSummary[]> {
 	// Library remounts on return; also wait for writes started before navigation.
 	await waitForProgressWrites();
 	const db = await getDb();
-	return db.select<CourseSummary[]>(`
+	const rows = await db.select<CourseSummary[]>(`
 		WITH active AS (
 			SELECT l.*, COALESCE(p.completed, 0) AS completed, p.last_watched_at
 			FROM lessons l LEFT JOIN progress p ON p.lesson_id = l.id
@@ -54,4 +55,10 @@ export async function listCourseSummaries(): Promise<CourseSummary[]> {
 		LEFT JOIN candidates r ON r.course_id = c.id AND r.rank = 1
 		ORDER BY c.id
 	`);
+	return rows.map((row) => ({
+		...row,
+		resume_lesson_title: row.resume_lesson_title
+			? displayTitle(row.resume_lesson_title)
+			: null,
+	}));
 }

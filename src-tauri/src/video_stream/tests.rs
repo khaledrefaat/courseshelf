@@ -118,29 +118,31 @@ fn value<'a>(response: &'a ResponseBox, name: &str) -> Option<&'a str> {
 fn production_webview_origin_keeps_host_validation_and_no_cors_headers() {
     let fixture = Fixture::new();
     fixture.file("lesson.mp4");
-    for host in [fixture.media.address.to_string(), "tauri.localhost".into()] {
-        let request: Request = TestRequest::new()
-            .with_path(&fixture.route("lesson.mp4"))
-            .with_header(header("Host", &host))
-            .with_header(header("Origin", "tauri://localhost"))
-            .into();
-        let response = response_for(&request, fixture.media.address, &fixture.media.shared);
-        assert_eq!(
-            response.status_code().0,
-            if host == fixture.media.address.to_string() {
-                200
-            } else {
-                403
-            }
-        );
-        assert!(response.headers().iter().all(|header| {
-            !header
-                .field
-                .as_str()
-                .as_str()
-                .to_ascii_lowercase()
-                .starts_with("access-control-")
-        }));
+    for origin in ["tauri://localhost", "http://tauri.localhost"] {
+        for host in [fixture.media.address.to_string(), "tauri.localhost".into()] {
+            let request: Request = TestRequest::new()
+                .with_path(&fixture.route("lesson.mp4"))
+                .with_header(header("Host", &host))
+                .with_header(header("Origin", origin))
+                .into();
+            let response = response_for(&request, fixture.media.address, &fixture.media.shared);
+            assert_eq!(
+                response.status_code().0,
+                if host == fixture.media.address.to_string() {
+                    200
+                } else {
+                    403
+                }
+            );
+            assert!(response.headers().iter().all(|header| {
+                !header
+                    .field
+                    .as_str()
+                    .as_str()
+                    .to_ascii_lowercase()
+                    .starts_with("access-control-")
+            }));
+        }
     }
 }
 
@@ -194,6 +196,58 @@ fn registration_reports_every_root_and_failed_registration_revokes_previous_acce
 }
 
 #[test]
+fn portable_arabic_spaces_hash_percent_and_plus_round_trip() {
+    let fixture = Fixture::new();
+    for relative in [
+        "القسم الأول/01 - تحليل # % +.mp4",
+        "space folder/name with spaces.m4v",
+        "خاص/%2e%2e + #.WEBM",
+    ] {
+        fixture.file(relative);
+        let route = fixture.route(relative);
+        assert!(route.is_ascii());
+        assert!(!route.contains([' ', '#', '?']));
+        let mut opened = resolve_route(&fixture.media.shared, &route).unwrap();
+        let mut data = Vec::new();
+        opened.file.read_to_end(&mut data).unwrap();
+        assert_eq!(data, b"0123456789");
+    }
+    // '?' is a valid URL character to encode, but cannot be created in Windows filenames.
+    let encoded = utf8_percent_encode("تحليل # ? % +.mp4", NON_ALPHANUMERIC).to_string();
+    assert_eq!(decode_path(&encoded).unwrap(), "تحليل # ? % +.mp4");
+    for encoding in ["%23", "%3F", "%25", "%2B", "%20"] {
+        assert!(encoded.contains(encoding));
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn canonical_windows_roots_play_but_junctions_and_alternate_streams_do_not() {
+    let fixture = Fixture::new();
+    let outside = Fixture::new();
+    fixture.file("real/lesson.mp4");
+    outside.file("lesson.mp4");
+    assert!(matches!(
+        fixture.root.components().next(),
+        Some(std::path::Component::Prefix(_))
+    ));
+    assert!(resolve_lesson(&fixture.media.shared, 1, "real/lesson.mp4").is_ok());
+    crate::fs_links::test_junction(&fixture.root.join("real"), &fixture.root.join("internal"));
+    crate::fs_links::test_junction(&outside.root, &fixture.root.join("escape"));
+    for path in [
+        "internal/lesson.mp4",
+        "escape/lesson.mp4",
+        "real/lesson.mp4:other",
+    ] {
+        assert_eq!(
+            error_code(resolve_lesson(&fixture.media.shared, 1, path)),
+            "INVALID_PATH"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn arabic_spaces_and_reserved_characters_round_trip_without_double_decoding() {
     let fixture = Fixture::new();
     for relative in [
@@ -231,6 +285,11 @@ fn rejects_traversal_absolute_paths_wrong_extensions_and_unregistered_courses() 
         "C:/video.mp4",
         "C:\\video.mp4",
         "sub\\video.mp4",
+        "//server/share/video.mp4",
+        "\\\\server\\share\\video.mp4",
+        "\\\\?\\C:\\video.mp4",
+        "video.mp4:hidden",
+        "C:video.mp4",
         "./video.mp4",
         "sub//video.mp4",
         "video.txt",
@@ -425,6 +484,7 @@ fn loopback_server_survives_aborted_streams_supports_head_and_rotates_session() 
     assert_eq!(media.address.ip(), Ipv4Addr::LOCALHOST);
     assert_ne!(media.address.port(), 0);
     assert_eq!(media.shared.token.len(), 64);
+    assert!(media.shared.token.bytes().all(|b| b.is_ascii_hexdigit()));
     media
         .register(
             CourseRoot {

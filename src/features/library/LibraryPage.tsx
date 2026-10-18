@@ -130,7 +130,7 @@ export function LibraryPage({
 							<TabsTrigger
 								key={tab.value}
 								value={tab.value}
-								className="h-10 flex-none rounded-lg px-4 data-active:border-border data-active:bg-card"
+								className="h-10 flex-none cursor-pointer rounded-lg px-4 data-active:border-border data-active:bg-card"
 							>
 								{tab.label} ·{" "}
 								{tab.value === "All"

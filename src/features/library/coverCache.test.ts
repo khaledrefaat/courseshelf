@@ -1,9 +1,10 @@
+import { appDataDir } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { loadCover, retainCoverCache } from "@/features/library/coverCache";
 
 vi.mock("@tauri-apps/api/path", () => ({
-	appDataDir: async () => "/app/data",
+	appDataDir: vi.fn(async () => "/app/data"),
 }));
 vi.mock("@tauri-apps/plugin-fs", () => ({
 	readFile: vi.fn(async () => new Uint8Array([1, 2, 3])),
@@ -12,6 +13,7 @@ let release: () => void;
 beforeEach(() => {
 	vi.useFakeTimers();
 	vi.clearAllMocks();
+	vi.mocked(appDataDir).mockResolvedValue("/app/data");
 	vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:cover");
 	vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
 	release = retainCoverCache();
@@ -52,4 +54,12 @@ it("caches failures without repeated reads", async () => {
 	expect(await loadCover("gone.jpg")).toBeNull();
 	expect(await loadCover("gone.jpg")).toBeNull();
 	expect(readFile).toHaveBeenCalledTimes(1);
+});
+it("loads native Windows absolute cover paths and still caches one read", async () => {
+	const root = "C:\\Users\\Khaled\\AppData\\Roaming\\com.khaled.courseshelf";
+	vi.mocked(appDataDir).mockResolvedValue(root);
+	const path = `${root}\\covers\\one.png`;
+	expect(await loadCover(path)).toBe("blob:cover");
+	expect(await loadCover(path)).toBe("blob:cover");
+	expect(readFile).toHaveBeenCalledExactlyOnceWith(path);
 });

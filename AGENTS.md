@@ -13,6 +13,8 @@ Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure
 - Frontend gates: `pnpm check` (typecheck + lint + tests)
 - Rust gates: `pnpm check:rust` (fmt check, clippy all targets with warnings denied, tests)
 - Release deb: `pnpm tauri build --bundles deb`
+- Windows installer: manual `Windows installer` GitHub Actions workflow; see docs/windows.md.
+  No local Windows toolchain is required for installation/testing. Windows runtime checks remain manual.
 - Toolchain: Node version in .nvmrc, pnpm version in package.json's packageManager.
 Run typecheck and lint before saying a task is done.
 
@@ -94,6 +96,9 @@ and the folder-tree sidebar.
   registered course roots, byte-range support). Don't switch back to `convertFileSrc` or the asset protocol.
 - The server may only serve files inside registered course folders (canonicalize paths, reject
   symlink escapes and `..`).
+- Session tokens use getrandom's OS-backed secure randomness on Linux and Windows (32 bytes).
+  Keep token strength, loopback binding, Host checks and lack of permissive CORS unchanged.
+- Windows scanner/playback reject internal reparse points (including junctions); do not follow them.
 - Ask before changing the playback server, its tokens, or `tauri.conf.json` CSP/capabilities.
 - Production uses `tauri://localhost` on Linux. Media requests must retain the exact loopback
   Host check, token validation and absence of permissive CORS headers. Native video loads use
@@ -144,6 +149,9 @@ and the folder-tree sidebar.
 - Never delete, move, rename or modify anything inside a course folder. Courseshelf only
   writes to its own app data (database, `covers/`). Removing a course removes database rows
   and its cover copy, never the videos.
+- Cover loading and cleanup share the scoped path resolver in src/lib/cover-paths.ts.
+  Support native Windows separators without weakening traversal/outside-path checks;
+  cleanup still requires the exact course-owned UUID filename.
 
 
 ## Keyboard shortcuts

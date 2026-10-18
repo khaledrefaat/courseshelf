@@ -74,7 +74,11 @@ export async function writeCourseCover(
 			createdPath = path;
 		} catch (error) {
 			// writeFile may have created a partial file; never remove a collision.
-			if (!/already exists|file exists|os error 17/i.test(errorMessage(error)))
+			if (
+				!/already exists|file exists|os error (17|80|183)\b/i.test(
+					errorMessage(error),
+				)
+			)
 				createdPath = path;
 			throw error;
 		}
