@@ -104,7 +104,20 @@ mod tests {
         );
         assert!(validate(&candidate, &[], &[], false, |_| false).is_err());
         assert!(validate(Path::new("file:bad.db"), &[], &[], false, |_| true).is_err());
-        assert!(validate(&base.join("course/../bad.db"), &[], &[], false, |_| true).is_err());
+        // Windows canonicalize() returns a verbatim path. PathBuf::join() on
+        // that prefix removes '..' before validate() can inspect it, so append
+        // raw text with native separators to preserve the malicious input.
+        let mut traversal = base.as_os_str().to_os_string();
+        let separator = std::path::MAIN_SEPARATOR;
+        traversal.push(format!("{separator}course{separator}..{separator}bad.db"));
+        let traversal = PathBuf::from(traversal);
+        assert!(
+            traversal
+                .components()
+                .any(|part| matches!(part, Component::ParentDir)),
+            "Traversal fixture must retain its parent component"
+        );
+        assert!(validate(&traversal, &[], &[], false, |_| true).is_err());
         assert!(
             validate(
                 &root.join("bad.db"),
