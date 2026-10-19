@@ -1,4 +1,6 @@
+mod download;
 mod export;
+mod ffmpeg;
 mod model;
 mod paths;
 mod process;
@@ -89,6 +91,8 @@ impl Generation {
 pub struct GenerationStatus {
     model_present: bool,
     helpers_present: bool,
+    ffmpeg_present: bool,
+    ffmpeg_download_bytes: u64,
     job: Option<JobStatus>,
 }
 
@@ -158,6 +162,7 @@ pub fn clean_interrupted(app: &tauri::AppHandle) -> Result<(), String> {
     if !root.exists() {
         return Ok(());
     }
+    ffmpeg::clean_interrupted(&root)?;
     let jobs = directory(&root, "subtitle-jobs")?;
     for entry in fs::read_dir(jobs).map_err(|_| "Could not check interrupted subtitle jobs.")? {
         let entry = entry.map_err(|_| "Could not check interrupted subtitle job.")?;
@@ -239,8 +244,9 @@ pub fn subtitle_generation_status(
         });
     Ok(GenerationStatus {
         model_present: root.join("models/ggml-base.en.bin").is_file(),
-        helpers_present: process::helper(&resource, "whisper-cli").is_ok()
-            && process::helper(&resource, "ffmpeg").is_ok(),
+        helpers_present: process::helper(&resource, "whisper-cli").is_ok(),
+        ffmpeg_present: ffmpeg::present(&root),
+        ffmpeg_download_bytes: ffmpeg::download_bytes(),
         job,
     })
 }
@@ -257,7 +263,6 @@ pub async fn start_subtitle_generation(
         return Err("Invalid lesson.".into());
     }
     let resource = resources(&app)?;
-    process::helper(&resource, "ffmpeg")?;
     process::helper(&resource, "whisper-cli")?;
     let root = data(&app)?;
     let mut random = [0_u8; 32];
@@ -283,11 +288,12 @@ pub async fn start_subtitle_generation(
         let result = (|| {
             // Validate before downloading anything or launching helpers.
             let source = source_path(&app, course_id, &relative_path)?;
+            let ffmpeg = ffmpeg::ensure(&root, &job, download_consent)?;
             let model = model::ensure_model(&root, &job, download_consent)?;
             job.stage("Checking video", None);
             let fingerprint = digest_file(&source, &job.cancel)?;
             let temporary = job_directory(&root, &job)?;
-            process::transcribe(&resource, &source, &model, &temporary, &job)?;
+            process::transcribe(&resource, &ffmpeg, &source, &model, &temporary, &job)?;
             job.stage("Verifying video", None);
             if source_path(&app, course_id, &relative_path)? != source
                 || digest_file(&source, &job.cancel)? != fingerprint

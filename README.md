@@ -125,7 +125,10 @@ Build a new copy to use this feature; existing installations do not gain it auto
   checked by default. It creates `Introduction.en.vtt` beside `Introduction.mp4`,
   while keeping an app-data copy too. Uncheck it for app-data-only output.
 
-The first use asks permission to download the English `base.en` model (~142 MiB).
+The installer includes only the small Whisper helpers. First use asks permission
+to download the FFmpeg audio tool (~131 MiB on Ubuntu, ~163 MiB on Windows) and
+the English `base.en` model (~142 MiB), listing only what is missing. Both are
+verified and saved in app data, not downloaded again for every lesson.
 Generation then runs locally on your CPU, offline, without uploading audio or needing
 an account or API key. Speed depends on your computer and lesson; programming terms
 and names can be transcribed incorrectly. This generates files, not live captions.
@@ -152,7 +155,7 @@ Ubuntu build/runtime packages are listed in the [release guide](docs/release.md)
 
 ~~~sh
 pnpm install --frozen-lockfile
-# Prepare native helpers for subtitle generation and release packaging (no model download).
+# Prepare bundled Whisper helpers (FFmpeg and the model download on first use).
 pnpm prepare:subtitles
 pnpm tauri dev
 ~~~

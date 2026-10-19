@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useCourseSubtitles } from "@/features/course/courseSubtitles";
+import { subtitleDownloads } from "@/features/course/subtitleDownloads";
 import {
 	cancelGeneration,
 	pollGeneration,
@@ -43,9 +44,7 @@ export function GenerateSubtitles({
 	};
 	if (available && !own) return null;
 	if (available && !active && !error && !failure) return null;
-	const needsModel =
-		!status?.modelPresent ||
-		/model.*missing|model.*invalid/i.test(job?.error ?? "");
+	const downloads = subtitleDownloads(status);
 	return (
 		<div className="mt-3 space-y-2 text-sm">
 			{active && own && (job.running || job.result) ? (
@@ -77,8 +76,12 @@ export function GenerateSubtitles({
 						{confirm ? (
 							<div className="rounded-lg border bg-card p-3">
 								<p>
-									Download the English model (~142 MiB)? This is needed once.
-									Audio stays on your computer.
+									Download {downloads.join(" and ")}? Saved in app data for
+									offline reuse. Audio stays on your computer.
+								</p>
+								<p className="mt-2 text-muted-foreground">
+									This also allows repairing FFmpeg or the English model if a
+									cached copy fails verification.
 								</p>
 								<div className="mt-3 flex gap-2">
 									<Button
@@ -110,7 +113,7 @@ export function GenerateSubtitles({
 									busy || active || management.busy || !status?.helpersPresent
 								}
 								onClick={() => {
-									if (needsModel) setConfirm(true);
+									if (downloads.length) setConfirm(true);
 									else
 										void act(() =>
 											startGeneration(courseId, lessonId, relativePath, false),

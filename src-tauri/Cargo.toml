@@ -32,6 +32,10 @@ subtle = "2"
 getrandom = "0.4"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 sha2 = "0.10.9"
+# Read only checksum-pinned upstream FFmpeg archives; never invoke system extractors.
+tar = { version = "0.4.46", default-features = false }
+lzma-rust2 = { version = "0.22.0", default-features = false, features = ["std", "xz"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already used transitively by Tauri; read actual GDK state rather than Tao's cached request.

@@ -7,8 +7,8 @@ fn main() {
         } else {
             ""
         };
-        for name in ["ffmpeg", "whisper-cli", "whisper-cli-avx2"] {
-            let path = format!("resources/subtitle-helpers/{name}{suffix}");
+        for name in ["whisper-cli", "whisper-cli-avx2"] {
+            let path = format!("resources/subtitle-helpers/whisper/{name}{suffix}");
             println!("cargo:rerun-if-changed={path}");
             assert!(
                 std::path::Path::new(&path).is_file(),

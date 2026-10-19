@@ -13,7 +13,7 @@ Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure
 - Frontend gates: `pnpm check` (typecheck + lint + tests)
 - Rust gates: `pnpm check:rust` (fmt check, clippy all targets with warnings denied, tests)
 - Prepare subtitle helpers: `pnpm prepare:subtitles` (required before generation/release builds;
-  builds both CPU variants, does not download or bundle the model)
+  builds both Whisper CPU variants; FFmpeg and the model download on first use)
 - Release deb: `pnpm tauri build --bundles deb`
 - Windows installer: manual `Windows installer` GitHub Actions workflow; see docs/windows.md.
   No local Windows toolchain is required for installation/testing. Windows runtime checks remain manual.
@@ -96,9 +96,17 @@ and the folder-tree sidebar.
 ## Subtitles and generation
 - Existing matching VTT/SRT sidecars take priority over generated caches. Invalid or
   unreadable existing sidecars produce a visible error, never automatic replacement.
-- English generation uses fixed bundled whisper.cpp/FFmpeg executables from Rust,
+- English generation uses bundled whisper.cpp and a pinned, downloaded FFmpeg executable from Rust,
   without a shell, uploads, frontend HTTP grants or arbitrary process arguments.
   Windows helpers use CREATE_NO_WINDOW. Never run helpers from PATH.
+- Bundle only `resources/subtitle-helpers/whisper/`, never its legacy parent folder.
+  FFmpeg downloads directly from a pinned upstream HTTPS release after explicit consent
+  (~131 MiB Linux / ~163 MiB Windows). Verify archive size/SHA-256 and extracted binary
+  size/SHA-256; extract only the expected regular binary and license into owned staging,
+  then publish into app-data `tools/`. Reject archive links/traversal and cap extraction.
+  Revalidate the installed binary before each generation; no network when it is valid.
+  Missing/invalid tools need consent to download/repair. Keep progress, cancellation and
+  interrupted-staging cleanup; no general frontend HTTP/process grants or CSP changes.
 - `base.en` is already selected. Download it only after explicit consent; verify its
   pinned size/SHA-256 before installation and before each lesson's generation. Never
   bundle the model or silently skip integrity checks to improve speed.

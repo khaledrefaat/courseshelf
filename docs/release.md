@@ -14,6 +14,13 @@ a portable fallback, and double-click player fullscreen. Back up before upgradin
 the subtitle metadata migration (0005) runs automatically. Published 0.3.0 download
 links stay unchanged until the new installers are uploaded and verified.
 
+Only the small Whisper helpers are bundled. FFmpeg is downloaded directly from
+its pinned upstream release after consent (~131 MiB Ubuntu / ~163 MiB Windows),
+as is the separate ~142 MiB English model. Existing local FFmpeg files in the
+legacy resource directory are excluded by the narrower resource map. Preparing
+helpers no longer fetches FFmpeg. Downloads live in app data and are reused offline;
+see [subtitle generation](subtitle-generation.md) for integrity and license details.
+
 ## Prerequisites and build
 
 Use the Node version in .nvmrc, pnpm from package.json's packageManager field,
@@ -151,7 +158,7 @@ Custom invokes (not plugin ACL permission names):
 | Command | Frontend call site | Backend restriction |
 | --- | --- | --- |
 | `subtitle_generation_status` | `course/subtitleGeneration.ts` | Reports one in-memory job and fixed model/helper availability; no file content. |
-| `start_subtitle_generation` | Same service | One job; registered/granted lesson; pinned helpers, English only; explicit consent for HTTPS model download and SHA-256 verification. |
+| `start_subtitle_generation` | Same service | One job; registered/granted lesson; English only; explicit consent for fixed HTTPS FFmpeg/model downloads, size/SHA-256 verification and bounded extraction. No frontend HTTP or process permission. |
 | `cancel_subtitle_generation` | Same service, course management | Cancels matching job/course and kills its helper; no arbitrary PID/process command. |
 | `validate_generated_subtitle_job` | Same service before DB save | Only the current ready job's bounded staged VTT. |
 | `finish_subtitle_generation` | Same service after DB save | Commits or discards that job's app-owned output only. |

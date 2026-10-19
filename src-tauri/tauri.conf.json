@@ -50,7 +50,9 @@
 		}
 	},
 	"bundle": {
-		"resources": { "resources/subtitle-helpers/": "subtitle-helpers/" },
+		"resources": {
+			"resources/subtitle-helpers/whisper/": "subtitle-helpers/whisper/"
+		},
 		"active": true,
 		"targets": ["deb"],
 		"shortDescription": "Track your progress through local video courses",

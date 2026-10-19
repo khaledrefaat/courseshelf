@@ -12,6 +12,7 @@ import {
 	courseSubtitles,
 	useCourseSubtitles,
 } from "@/features/course/courseSubtitles";
+import { subtitleDownloads } from "@/features/course/subtitleDownloads";
 import {
 	cancelGeneration,
 	useSubtitleGeneration,
@@ -32,9 +33,8 @@ export function CourseSubtitlesDialog({
 	const { status } = useSubtitleGeneration();
 	const active =
 		queue?.running || status?.job?.running || !!status?.job?.result;
-	const needsConsent =
-		!status?.modelPresent ||
-		/model.*missing|model.*invalid/i.test(status.job?.error ?? "");
+	const downloads = subtitleDownloads(status);
+	const needsConsent = downloads.length > 0;
 	return (
 		<Dialog
 			open
@@ -73,8 +73,9 @@ export function CourseSubtitlesDialog({
 							checked={consent}
 							onChange={(event) => setConsent(event.target.checked)}
 						/>
-						Allow the one-time English model download (~142 MiB). Audio stays on
-						this computer.
+						Allow downloading {downloads.join(" and ")}. Saved in app data for
+						offline reuse. Also allow repairing FFmpeg or the English model if a
+						cached copy fails verification. Audio stays on this computer.
 					</label>
 				)}
 				{error && (

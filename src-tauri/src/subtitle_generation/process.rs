@@ -10,11 +10,13 @@ use std::{
 };
 
 pub fn helper(resource: &Path, name: &str) -> Result<PathBuf, String> {
-    let path = resource.join("subtitle-helpers").join(if cfg!(windows) {
-        format!("{name}.exe")
-    } else {
-        name.into()
-    });
+    let path = resource
+        .join("subtitle-helpers/whisper")
+        .join(if cfg!(windows) {
+            format!("{name}.exe")
+        } else {
+            name.into()
+        });
     if !path.is_file()
         || crate::fs_links::is_link(
             &fs::symlink_metadata(&path).map_err(|_| "Generation helper is unavailable.")?,
@@ -152,6 +154,7 @@ fn run(job: &Arc<Job>, mut command: Command, audio: Option<&Path>) -> Result<(),
 
 pub fn transcribe(
     resource: &Path,
+    ffmpeg_path: &Path,
     source: &Path,
     model: &Path,
     directory: &Path,
@@ -159,7 +162,7 @@ pub fn transcribe(
 ) -> Result<PathBuf, String> {
     let wav = directory.join("audio.wav");
     job.stage("Extracting audio", None);
-    let mut ffmpeg = Command::new(helper(resource, "ffmpeg")?);
+    let mut ffmpeg = Command::new(ffmpeg_path);
     ffmpeg
         .args([
             "-nostdin",
@@ -234,7 +237,7 @@ mod tests {
         }
         let root =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("target/subtitle-helper-selection-test");
-        let directory = root.join("subtitle-helpers");
+        let directory = root.join("subtitle-helpers/whisper");
         fs::create_dir_all(&directory).unwrap();
         let suffix = if cfg!(windows) { ".exe" } else { "" };
         let portable = directory.join(format!("whisper-cli{suffix}"));
@@ -247,6 +250,7 @@ mod tests {
         fs::remove_file(optimized).unwrap();
         fs::remove_file(portable).unwrap();
         fs::remove_dir(directory).unwrap();
+        fs::remove_dir(root.join("subtitle-helpers")).unwrap();
         fs::remove_dir(root).unwrap();
     }
     #[cfg(unix)]
@@ -282,7 +286,13 @@ mod tests {
         let source = repo.join("subtitle-trial.local/benchmark/speech.mp4");
         let model = repo.join("subtitle-trial.local/downloads/ggml-base.en.bin");
         let job = super::super::fixture_job();
-        let output = transcribe(&resource, &source, &model, &directory, &job).unwrap();
+        let ffmpeg = super::super::ffmpeg::ensure(
+            &repo.join("subtitle-trial.local/native-download-smoke"),
+            &job,
+            true,
+        )
+        .unwrap();
+        let output = transcribe(&resource, &ffmpeg, &source, &model, &directory, &job).unwrap();
         assert!(fs::read_to_string(&output).unwrap().contains("-->"));
         assert!(!directory.join("audio.wav").exists());
         fs::remove_file(output).unwrap();

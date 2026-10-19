@@ -25,6 +25,8 @@ export interface GenerationJob {
 }
 export interface GenerationStatus {
 	modelPresent: boolean;
+	ffmpegPresent: boolean;
+	ffmpegDownloadBytes: number;
 	helpersPresent: boolean;
 	job: GenerationJob | null;
 }

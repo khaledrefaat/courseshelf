@@ -20,6 +20,8 @@ const row = {
 const vtt = "WEBVTT\n\n00:00.000 --> 00:02.000\nHello";
 const status = {
 	modelPresent: true,
+	ffmpegPresent: true,
+	ffmpegDownloadBytes: 137053196,
 	helpersPresent: true,
 	job: null as generation.GenerationJob | null,
 };

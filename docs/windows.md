@@ -35,8 +35,10 @@ not the identity of an unsigned publisher.
 ## Build through GitHub Actions
 
 The toolchain is installed on GitHub's runner, not your Windows computer.
-0.3.1 source builds prepare pinned subtitle helpers before packaging; the
-English model is downloaded only after user consent. See
+0.3.1 source builds prepare only the small pinned Whisper helpers before packaging.
+FFmpeg (~163 MiB on Windows) and the English model (~142 MiB) download separately
+after explicit consent, are verified, and are reused offline from app data. The
+installer does not include FFmpeg or the model. See
 [subtitle generation](subtitle-generation.md) for setup, size and redistribution checks.
 The current source version is **0.3.1**, producing
 `Courseshelf_0.3.1_x64-setup.exe` and its checksum. The published preview links

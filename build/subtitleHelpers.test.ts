@@ -3,10 +3,10 @@ import { expect, it } from "vitest";
 
 const read = (path: string) =>
 	readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-it("packages helpers, not the English model, without new frontend grants or remote CSP", () => {
+it("packages only Whisper, not FFmpeg or the English model, without new frontend grants or remote CSP", () => {
 	const config = JSON.parse(read("src-tauri/tauri.conf.json"));
 	expect(config.bundle.resources).toEqual({
-		"resources/subtitle-helpers/": "subtitle-helpers/",
+		"resources/subtitle-helpers/whisper/": "subtitle-helpers/whisper/",
 	});
 	expect(JSON.stringify(config.bundle)).not.toContain("ggml-base.en.bin");
 	expect(config.app.security.csp["connect-src"]).toBe(
@@ -19,6 +19,8 @@ it("packages helpers, not the English model, without new frontend grants or remo
 	expect(script).toContain('createHash("sha256")');
 	expect(script).toContain("Checksum mismatch");
 	expect(script).not.toContain("sudo");
+	expect(script).not.toContain("FFmpeg-Builds/releases/download");
+	expect(read("src-tauri/build.rs")).not.toContain('"ffmpeg"');
 	expect(read(".github/workflows/windows-build.yml")).toContain(
 		"pnpm prepare:subtitles",
 	);

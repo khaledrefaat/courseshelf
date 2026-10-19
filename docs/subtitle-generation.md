@@ -2,15 +2,17 @@
 
 Generation is included in the 0.3.1 source. The published 0.3.0 installers play
 existing VTT/SRT sidecars only; build/install 0.3.1 to use generation. The model
-is downloaded separately after consent, not bundled in the installer.
+and FFmpeg are downloaded separately after consent, not bundled in the installer.
 
 ## Use
 
 Open a lesson with no matching sidecar and click **Generate English subtitles**
-below the player. First use asks permission to download the `base.en` model
-(147,964,211 bytes, approximately 142 MiB). Confirm **Download and generate**.
-The backend verifies its pinned SHA-256 before installing or using the model.
-No audio is uploaded. Subsequent jobs work offline with the same shared model.
+below the player. First use lists the missing downloads: FFmpeg (~131 MiB on Linux,
+~163 MiB on Windows) and `base.en` (147,964,211 bytes, approximately 142 MiB).
+Confirm **Download and generate**. Existing valid downloads are reused; if the
+model is already installed, only FFmpeg is requested. The backend verifies pinned
+sizes and SHA-256 checksums before installation and checks each executable/model
+before use. No audio is uploaded. Subsequent jobs work offline.
 
 There is one job at a time, using up to six CPU threads (capped by available
 parallelism) and no GPU. The panel shows
@@ -24,7 +26,7 @@ can wait for the active network operation's timeout (10-second read timeout,
 
 Choose **Manage → Generate course subtitles…**. **Save subtitles beside videos**
 is checked by default; uncheck it for app-data-only output. Confirm the optional
-model download if prompted, then start. Only non-missing lessons are included,
+FFmpeg/model downloads if prompted, then start. Only non-missing lessons are included,
 in course order, with one helper job at a time. Existing matching VTT/SRT files
 are never overwritten. Invalid/unreadable existing sidecars produce a visible
 lesson error rather than being replaced. Valid app-data caches are reused and
@@ -42,7 +44,7 @@ Export creates `Introduction.en.vtt` beside `Introduction.mp4`, retaining the
 app-data cache as well. A narrow Rust command derives the destination from the
 registered lesson, checks the persisted scope, rejects links/reparse points and
 revalidates before publication. It accepts no arbitrary destination or text.
-No new dependency, migration, frontend capability or CSP change is needed.
+Export itself needs no extra dependency, migration, frontend capability or CSP change.
 
 A uniquely named `courseshelf-subtitle-<random>.tmp` sibling is written and synced,
 then published using an exclusive hard link so even a racing existing file cannot
@@ -67,6 +69,11 @@ Paths below are relative to Tauri's app **data** directory (on Ubuntu, normally
 The existing SQL-plugin database location is unchanged.
 
 - `models/ggml-base.en.bin`: one shared downloaded model, not inside the installer.
+- `tools/ffmpeg-8.1.3-46d899d7a0-<platform>-x64/`: verified FFmpeg executable,
+  LICENSE.txt and BUILD-SOURCES.txt. Temporary downloads/extraction use
+  `tools/ffmpeg-staging-<random-id>/`, cleaned on failure/cancellation or next startup.
+  Repair preserves an invalid prior directory as `ffmpeg-invalid-<random-id>`;
+  these quarantined files can accumulate and are never executed.
 - `subtitles/<lesson-id>-<random-id>.en.vtt`: completed generated subtitles.
 - `subtitle-jobs/<random-id>/`: temporary audio and staged output; cleaned after
   completion/cancellation, with interrupted job directories retried on startup.
@@ -90,10 +97,10 @@ Output is limited to 2 MiB/10,000 cues by the existing subtitle reader/parser.
 Temporary decoded audio is capped at 512 MiB (roughly 4.5 hours at 16 kHz mono
 16-bit PCM). Jobs time out after 24 hours; disk-full/unsupported audio fails visibly.
 
-Database backups contain metadata, **not subtitle files or the model**. Restored
+Database backups contain metadata, **not subtitle files, FFmpeg or the model**. Restored
 metadata with absent files is invalidated and subtitles can be regenerated. Back
-up `subtitles/` separately if you want to preserve generated text. The model can
-be downloaded again; no backup-format changes are made here.
+up `subtitles/` separately if you want to preserve generated text. FFmpeg and the
+model can be downloaded again; no backup-format changes are made here.
 
 ## Prepare a development/release build
 
@@ -104,16 +111,17 @@ pnpm check:rust
 pnpm tauri dev
 ```
 
-Preparation downloads checksum-pinned source/helper archives, builds whisper.cpp
-v1.9.5 as a CPU-only executable, and obtains a dated LGPL FFmpeg x64 build.
+Preparation downloads checksum-pinned source archives and builds whisper.cpp
+v1.9.5 as two CPU-only executables. It does not download FFmpeg or the model.
 On Linux, missing CMake is obtained locally, not installed system-wide. Windows
 uses the runner's CMake/MSVC. End users do not need these build tools or FFmpeg
 installed system-wide. No Python/CUDA environment is needed. Windows helper
 processes use CREATE_NO_WINDOW to avoid console flashes.
 
 Tool caches and experiments live in ignored `subtitle-trial.local/`. Generated
-resources/notices live in ignored `src-tauri/resources/subtitle-helpers/` and are
-packaged by Tauri as `subtitle-helpers/`. Release builds reject missing helpers.
+resources/notices live in ignored `src-tauri/resources/subtitle-helpers/whisper/`
+and are packaged by Tauri as `subtitle-helpers/whisper/`. The legacy parent folder
+is excluded even if it still contains an old FFmpeg binary. Release builds reject missing Whisper helpers.
 Debug Rust checks do not download tools or models. The Windows workflow prepares
 helpers before packaging. Linux/Windows x64 are the supported helper targets.
 
@@ -130,8 +138,12 @@ unchanged; existing generated subtitles remain usable without regeneration.
 See Microsoft's [x64 /arch documentation](https://github.com/MicrosoftDocs/cpp-docs/blob/main/docs/build/reference/arch-x64.md)
 for compiler-generated scalar instructions in AVX2 builds.
 
-The helpers occupy about **142 MiB uncompressed** on Linux, mostly FFmpeg. Actual
-installer compression varies; the separate model adds about 142 MiB once used.
+The bundled Whisper helpers occupy about **6 MiB uncompressed** on Linux. Actual
+installer compression varies. The separately downloaded FFmpeg executable occupies
+about 136 MiB on Linux / 128 MiB on Windows, plus the model's ~142 MiB. Download
+archives temporarily need ~131/163 MiB too and are removed after extraction.
+The local Ubuntu 0.3.1 rebuild measured **8.48 MiB**, versus **66.53 MiB** with
+bundled FFmpeg (about 87% smaller). Windows installer size must be measured by its workflow.
 Preparation needs at least 1.5 GB free, plus room for Cargo/build output. The
 model, build caches, test audio and private transcripts must never be committed.
 
@@ -140,6 +152,17 @@ HTTP or extra filesystem permissions are granted, and CSP/server rules stay inta
 Only pinned helpers run, arguments are passed without a shell, and FFmpeg input
 protocols/formats are restricted. Course access reuses registered-root validation
 and persisted fs scope; symlinks/reparse points are rejected.
+
+FFmpeg downloads from BtbN's fixed `autobuild-2026-10-18-13-01` release, LGPL 8.1
+build `n8.1.3-18-g46d899d7a0`. Linux uses TAR/XZ, Windows ZIP. The Rust downloader
+allows only HTTPS redirects to exact GitHub asset hosts and verifies both archive
+and extracted binary hashes/sizes. Bounded extraction (512 entries, 512 MiB total,
+256 MiB XZ memory cap, 64 KiB license cap) copies only the expected executable and
+license into an owned staging directory, rejecting traversal, links and devices.
+It never executes from the archive or PATH. Cancel/failure removes partial staging;
+startup retries interrupted-staging cleanup. A valid installed copy needs no network.
+Pure-Rust tar/XZ/ZIP readers are compiled into the app; no system archive tool is needed
+by the installed app. Existing sidecar playback and cache-only export need no downloads.
 
 Before redistributing helper binaries, preserve all generated upstream licenses
 and `BUILD-SOURCES.txt`, and review the selected FFmpeg build's corresponding-source
@@ -154,11 +177,13 @@ References: [whisper.cpp](https://github.com/ggml-org/whisper.cpp),
 ## Manual verification
 
 1. Back up the database, stop any installed copy, then launch dev from these sources.
-2. Open a lesson with no subtitles. Confirm the download prompt, progress and Cancel.
+2. Open a lesson with no subtitles. Confirm the download prompt lists only missing
+   items with their platform sizes. Download FFmpeg, Cancel mid-download, retry and
+   confirm progress/extraction stages. With an existing model, only FFmpeg is requested.
 3. Generate, then play/seek; verify captions, On/Off and unchanged progress tracking.
 4. Generate another lesson, switch away and return. Only that lesson gets its output.
 5. Quit fully and relaunch offline: cached subtitles work without re-picking folders
-   or downloading the model. A new generation reuses the existing model.
+   or downloading tools/model. A new generation reuses the verified installed copies.
 6. Cancel during download, audio extraction and transcription. Retry. Close during
    a job and relaunch; it must not continue in a leftover helper process.
 7. Use disposable course copies for replacement/relocation/removal checks. Confirm
@@ -206,9 +231,14 @@ now the cap, lowered when fewer logical CPUs are available. Older CPUs retain th
 portable path and will not get the same acceleration. No GPU, smaller model,
 quantization or reduced beam-search settings were used.
 
-The Rust process runner was also exercised with the actual bundled helpers on a
+The Rust process runner was also exercised with the actual helpers on a
 15-second speech clip: restricted FFmpeg extraction, whisper transcription, VTT
 validation and temporary-audio cleanup passed. A two-second clip produced no cues
 and was correctly rejected as having no generated speech subtitles. The native
 download prompt, WebKitGTK caption rendering and Windows installer still need the
 manual checks above; this command-line test does not verify those UI paths.
+
+The first-use Rust downloader was exercised against the actual pinned Linux release:
+HTTPS download, archive/binary verification, extraction, installation and transcription
+passed in an isolated app-data fixture. Both Linux TAR/XZ and Windows ZIP archives
+were also extracted and hash-checked locally; the Windows executable was not run.
