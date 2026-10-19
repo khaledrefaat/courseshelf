@@ -27,7 +27,7 @@ Feedback from other machines is welcome.
 
 | Platform | Installer | Release notes |
 | --- | --- | --- |
-| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.1/Courseshelf_0.3.1_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.1) |
+| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.1-windows2/Courseshelf_0.3.1_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.1-windows2) |
 | Ubuntu 24.04 x64 | [Download for Ubuntu (.deb)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.1-ubuntu/Courseshelf_0.3.1_amd64.deb) | [Ubuntu preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.1-ubuntu) |
 
 No Rust or development tools are needed to install either version.
