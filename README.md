@@ -22,24 +22,24 @@ sharing it with friends and anyone else who likes learning this way.
 
 ## Download
 
-Version **0.3.0** is available as an early preview for Windows and Ubuntu.
+Version **0.3.1** is available as an early preview for Windows and Ubuntu.
 Feedback from other machines is welcome.
 
 | Platform | Installer | Release notes |
 | --- | --- | --- |
-| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.0/Courseshelf_0.3.0_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.0) |
-| Ubuntu 24.04 x64 | [Download for Ubuntu (.deb)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.0-ubuntu/Courseshelf_0.3.0_amd64.deb) | [Ubuntu preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.0-ubuntu) |
+| Windows x64 | [Download for Windows (.exe)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.1-windows/Courseshelf_0.3.1_x64-setup.exe) | [Windows preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.1-windows) |
+| Ubuntu 24.04 x64 | [Download for Ubuntu (.deb)](https://github.com/khaledrefaat/courseshelf/releases/download/v0.3.1-ubuntu/Courseshelf_0.3.1_amd64.deb) | [Ubuntu preview](https://github.com/khaledrefaat/courseshelf/releases/tag/v0.3.1-ubuntu) |
 
 No Rust or development tools are needed to install either version.
 
-**0.3.1 is being prepared.** The source includes offline English subtitle
+**New in 0.3.1:** offline English subtitle
 generation, a whole-course queue with optional `.en.vtt` exports, optimized CPU
-helpers, and double-click fullscreen. The download links above still point to
-0.3.0 until the new installers have been built, tested and published.
+helpers, and double-click fullscreen. FFmpeg and the English model download on
+first use with your permission, keeping the installers small.
 
 ### Windows
 
-Download and run Courseshelf_0.3.0_x64-setup.exe. The installer may need internet
+Download and run Courseshelf_0.3.1_x64-setup.exe. The installer may need internet
 access to install Microsoft Edge WebView2 if it's missing.
 
 The installer is unsigned, so Windows may show an Unknown publisher or SmartScreen
@@ -51,7 +51,7 @@ security globally to install it.
 Download the .deb, open a terminal in its folder, and run:
 
 ~~~sh
-sudo apt install ./Courseshelf_0.3.0_amd64.deb
+sudo apt install ./Courseshelf_0.3.1_amd64.deb
 ~~~
 
 Launch Courseshelf from your applications menu. Apt installs the required runtime
@@ -69,7 +69,7 @@ dependencies and may need internet access. Quit any running copy before updating
 - **Watch comfortably:** native video controls, keyboard shortcuts, fullscreen and
   a five-second next-lesson countdown you can cancel with S.
 - **Watch with subtitles:** matching VTT/SRT files load automatically, with a
-  remembered On/Off toggle. Source builds also support English subtitle generation
+  remembered On/Off toggle. Generate English subtitles
   for a lesson or a whole course—see [subtitle generation](#generate-english-subtitles-031).
 - **Keep your library up to date:** rescan or relocate a course without losing
   matching lessons' progress and notes. Missing files are marked, not forgotten.
@@ -89,7 +89,7 @@ library removes its Courseshelf data, not the video files on disk.
 Back up your progress and notes before moving data or upgrading. See the
 [backup and restore guide](docs/backup-and-restore.md) for data locations and
 manual instructions. Database backups do not include videos, cover images,
-generated subtitle files or the downloaded model.
+generated subtitle files, FFmpeg or the downloaded model.
 
 ## Subtitles
 
@@ -113,8 +113,8 @@ older installations to use it.
 
 ### Generate English subtitles (0.3.1)
 
-**Included in the 0.3.1 source, not the published 0.3.0 installers linked above.**
-Build a new copy to use this feature; existing installations do not gain it automatically.
+Included in the **0.3.1 installers linked above**. If you use an older version,
+install the update to enable generation.
 
 - **One lesson:** open a lesson without subtitles and click **Generate English subtitles**
   below the player. The generated file stays in Courseshelf's app data.
