@@ -8,6 +8,7 @@ import { firstPlay, playQuietly } from "@/features/course/progressActions";
 import { positionLabel } from "@/features/course/trackingRules";
 import { useAutoAdvance } from "@/features/course/useAutoAdvance";
 import { useSubtitles } from "@/features/course/useSubtitles";
+import { WindowsSubtitles } from "@/features/course/WindowsSubtitles";
 import { registerManagedPlayer } from "@/features/course-management/state";
 import type { OutlineLesson } from "@/lib/db/courseOutline";
 import { get, savePosition } from "@/lib/db/progress";
@@ -147,8 +148,6 @@ export function LessonPlayer({
 							preload="metadata"
 							src={source}
 							aria-label={lesson.title}
-							data-subtitle-platform={subtitles.platform}
-							data-subtitle-fullscreen={expanded || undefined}
 							className={
 								expanded
 									? "lesson-video h-full w-full bg-player object-contain"
@@ -168,6 +167,12 @@ export function LessonPlayer({
 								);
 							}}
 						/>
+						{subtitles.platform === "windows" && (
+							<WindowsSubtitles
+								text={autoAdvance.state ? "" : subtitles.text}
+								expanded={expanded}
+							/>
+						)}
 						{subtitles.available && !autoAdvance.state && (
 							<Button
 								type="button"

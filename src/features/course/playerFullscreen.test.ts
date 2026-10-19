@@ -11,7 +11,11 @@ function deferred() {
 	});
 	return { promise, resolve };
 }
-function fixture(wrapperWorks = true, originallyFullscreen = false) {
+function fixture(
+	wrapperWorks = true,
+	originallyFullscreen = false,
+	preferWrapperForNative = false,
+) {
 	let element: "wrapper" | "native" | null = null;
 	const window = {
 		fullscreen: originallyFullscreen,
@@ -41,7 +45,12 @@ function fixture(wrapperWorks = true, originallyFullscreen = false) {
 	};
 	const states: FullscreenMode[] = [];
 	const error = vi.fn();
-	const controller = playerFullscreen(port, (mode) => states.push(mode), error);
+	const controller = playerFullscreen(
+		port,
+		(mode) => states.push(mode),
+		error,
+		{ preferWrapperForNative },
+	);
 	return {
 		controller,
 		port,
@@ -59,6 +68,81 @@ function fixture(wrapperWorks = true, originallyFullscreen = false) {
 }
 
 describe("player fullscreen", () => {
+	it("f exits an unannounced Windows native fullscreen without scheduling competing entries", async () => {
+		const f = fixture(true, false, true);
+		f.native();
+		await f.controller.toggle();
+		expect(f.port.requestWrapper).not.toHaveBeenCalled();
+		expect(f.port.exitElement).toHaveBeenCalledOnce();
+		expect(f.states[f.states.length - 1]).toBe("none");
+	});
+	it("unmount during the native-exit phase cannot re-enter after it settles", async () => {
+		const f = fixture(true, false, true);
+		const gate = deferred();
+		f.port.exitElement.mockImplementationOnce(async () => {
+			await gate.promise;
+			f.nativeExit();
+		});
+		f.native();
+		f.controller.syncElement();
+		await vi.waitFor(() => expect(f.port.exitElement).toHaveBeenCalledOnce());
+		const disposing = f.controller.dispose();
+		gate.resolve();
+		await disposing;
+		expect(f.port.requestWrapper).not.toHaveBeenCalled();
+		expect(f.port.setWindowFullscreen).not.toHaveBeenCalled();
+	});
+	it("promotes Windows native-control fullscreen once so sibling captions stay visible", async () => {
+		const f = fixture(true, false, true);
+		f.native();
+		f.controller.syncElement();
+		f.controller.syncElement();
+		await vi.waitFor(() =>
+			expect(f.states[f.states.length - 1]).toBe("wrapper"),
+		);
+		expect(f.port.exitElement).toHaveBeenCalledOnce();
+		expect(f.port.requestWrapper).toHaveBeenCalledOnce();
+		await f.controller.toggle();
+		expect(f.states[f.states.length - 1]).toBe("none");
+	});
+	it("Windows promotion falls back after loss of activation, then restores maximization", async () => {
+		const f = fixture(false, false, true);
+		f.native();
+		f.controller.syncElement();
+		await vi.waitFor(() =>
+			expect(f.states[f.states.length - 1]).toBe("window"),
+		);
+		await f.controller.exit();
+		expect(f.window.fullscreen).toBe(false);
+		expect(f.window.maximized).toBe(true);
+	});
+	it("native controls inside an existing fallback retain the original restore state", async () => {
+		const f = fixture(false, false, true);
+		await f.controller.toggle();
+		f.native();
+		f.controller.syncElement();
+		await vi.waitFor(() => expect(f.port.exitElement).toHaveBeenCalledOnce());
+		await f.controller.exit();
+		expect(f.port.isWindowFullscreen).toHaveBeenCalledOnce();
+		expect(f.port.setWindowFullscreen).toHaveBeenLastCalledWith(false);
+	});
+	it.each(["Escape", "unmount", "OS exit"])(
+		"cancels pending native promotion on %s without reviving fullscreen",
+		async (reason) => {
+			const f = fixture(true, false, true);
+			f.native();
+			f.controller.syncElement();
+			if (reason === "unmount") await f.controller.dispose();
+			else if (reason === "Escape") await f.controller.exit();
+			else {
+				f.nativeExit();
+				f.controller.syncElement();
+			}
+			await vi.waitFor(() => expect(f.controller.isActive()).toBe(false));
+			expect(f.port.requestWrapper).not.toHaveBeenCalled();
+			expect(f.port.setWindowFullscreen).not.toHaveBeenCalled();
+		},
+	);
 	it("tries wrapper synchronously before any window query and uses no window IPC on success", async () => {
 		const f = fixture();
 		const pending = f.controller.toggle();

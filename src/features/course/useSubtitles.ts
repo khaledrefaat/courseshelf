@@ -18,6 +18,7 @@ import {
 	loadLessonSubtitle,
 	useSubtitleRevision,
 } from "@/features/course/subtitleGeneration";
+import { bindWindowsSubtitles } from "@/features/course/windowsCaptionTrack";
 
 export function useSubtitles(
 	courseId: number,
@@ -38,6 +39,12 @@ export function useSubtitles(
 	);
 	const enabledRef = useRef(enabled);
 	const trackReady = useRef(false);
+	const windowsTrack = useRef<ReturnType<typeof bindWindowsSubtitles> | null>(
+		null,
+	);
+	const [caption, setCaption] = useState<{ key: string; text: string } | null>(
+		null,
+	);
 	const [subtitle, setSubtitle] = useState<{
 		key: string;
 		filename: string;
@@ -70,6 +77,7 @@ export function useSubtitles(
 	useLayoutEffect(() => {
 		trackReady.current = false;
 		setInstalled(false);
+		setCaption(null);
 		const video = videoRef.current;
 		if (!source || !video || subtitle?.key !== key) return;
 		try {
@@ -83,15 +91,34 @@ export function useSubtitles(
 			const clear = populateSubtitleTrack(
 				track,
 				subtitle.cues,
-				(start, end, text) =>
-					positionSubtitleCue(new VTTCue(start, end, text), platform),
+				(start, end, text) => positionSubtitleCue(new VTTCue(start, end, text)),
 			);
-			track.mode = enabledRef.current ? "showing" : "disabled";
+			if (platform === "windows") {
+				windowsTrack.current = bindWindowsSubtitles(
+					video,
+					track,
+					video.textTracks,
+					enabledRef.current,
+					(text) =>
+						setCaption((previous) =>
+							previous?.key === key && previous.text === text
+								? previous
+								: { key, text },
+						),
+					(value) => {
+						enabledRef.current = value;
+						setEnabled(value);
+						writeSubtitlePreference(localStorage, value);
+					},
+				);
+			} else track.mode = enabledRef.current ? "showing" : "disabled";
 			trackReady.current = true;
 			setInstalled(true);
 			return () => {
 				// Cleanup's mode change must not become the user's saved preference.
 				trackReady.current = false;
+				windowsTrack.current?.dispose();
+				windowsTrack.current = null;
 				clear();
 			};
 		} catch {
@@ -103,7 +130,7 @@ export function useSubtitles(
 	}, [subtitle, key, source, videoRef, platform]);
 	useEffect(() => {
 		const current = nativeTrack.current;
-		if (!installed || !current) return;
+		if (!installed || !current || platform === "windows") return;
 		const { video, track } = current;
 		const changed = () => {
 			if (!trackReady.current) return;
@@ -114,9 +141,18 @@ export function useSubtitles(
 		};
 		video.textTracks.addEventListener("change", changed);
 		return () => video.textTracks.removeEventListener("change", changed);
-	}, [installed]);
+	}, [installed, platform]);
 	return {
 		platform,
+		text:
+			platform === "windows" &&
+			enabled &&
+			installed &&
+			caption?.key === key &&
+			subtitle?.key === key &&
+			failure?.key !== key
+				? caption.text
+				: "",
 		loading,
 		available: installed && subtitle?.key === key && failure?.key !== key,
 		enabled,
@@ -127,7 +163,8 @@ export function useSubtitles(
 			enabledRef.current = value;
 			setEnabled(value);
 			writeSubtitlePreference(localStorage, value);
-			if (nativeTrack.current)
+			if (windowsTrack.current) windowsTrack.current.setEnabled(value);
+			else if (nativeTrack.current)
 				nativeTrack.current.track.mode = value ? "showing" : "disabled";
 		},
 	};

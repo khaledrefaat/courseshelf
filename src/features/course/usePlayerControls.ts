@@ -17,6 +17,7 @@ import {
 	focusPlayer,
 	playerShortcuts,
 } from "@/features/course/playerShortcuts";
+import { subtitlePlatform } from "@/features/course/subtitleCues";
 import {
 	readWindowFullscreen,
 	setWindowFullscreen,
@@ -148,6 +149,7 @@ export function usePlayerControls() {
 				setMode(next);
 			},
 			() => indicate("Could not change fullscreen. Press f to retry."),
+			{ preferWrapperForNative: subtitlePlatform() === "windows" },
 		);
 		fullscreen.current = controller;
 		const shortcuts = playerShortcuts({

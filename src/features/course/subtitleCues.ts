@@ -73,15 +73,12 @@ export function subtitlePlatform(
 }
 
 export function positionSubtitleCue<
-	T extends Pick<VTTCue, "line" | "snapToLines" | "size">,
->(cue: T, platform: "windows" | "native" = "native"): T {
+	T extends Pick<VTTCue, "line" | "snapToLines">,
+>(cue: T): T {
 	// Negative line numbers count upwards from the bottom of the video.
-	// GTK keeps its existing two extra lines; Windows needs just one.
+	// Leave two extra lines of breathing room above the default bottom position.
 	cue.snapToLines = true;
-	cue.line = platform === "windows" ? -2 : -3;
-	// WebView2 needs less bottom clearance and a bounded, centered text area.
-	// Keep WebKitGTK's existing width and positioning entirely unchanged.
-	if (platform === "windows") cue.size = 80;
+	cue.line = -3;
 	return cue;
 }
 

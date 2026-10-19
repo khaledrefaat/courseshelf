@@ -143,7 +143,13 @@ and the folder-tree sidebar.
 ## Video playback
 - Matching VTT/SRT sidecars are read through `get_lesson_subtitle` inside registered,
   granted course folders, never through HTTP/asset URLs. Native text-track cues render
-  basic timed text; VTT styles/regions are not applied. Keep native controls, On/Off
+  basic timed text on Linux; Windows uses a pointer-transparent React caption layer
+  driven by a hidden native track's active cues (18px normal, 22px fullscreen).
+  Render only getCueAsHTML().textContent, never subtitle HTML. Clear on seek/error/end
+  and lesson cleanup; keep Linux's native sizing/position unchanged. Windows native
+  video fullscreen is promoted to wrapper/window fullscreen so sibling captions stay
+  visible; retain cancellation, original-window restoration and the existing fallback.
+  VTT styles/regions are not applied. Keep native controls, On/Off
   preference, bounded reads, no-links checks and lesson-change cancellation intact.
 - Linux renderer default is set inline at the start of main, before threads or Tauri/GTK:
   WEBKIT_DISABLE_DMABUF_RENDERER=1 only if var_os reports it absent. Preserve any existing value.

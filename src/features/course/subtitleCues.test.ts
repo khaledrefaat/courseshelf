@@ -48,7 +48,7 @@ it("detects WebView2 on Windows without changing Linux or other platforms", () =
 		expect(subtitlePlatform(agent)).toBe("native");
 });
 
-it("lowers and bounds Windows cues without changing content, timing or alignment", () => {
+it("preserves native cue width, content, timing and alignment for Linux", () => {
 	const original = {
 		line: "auto" as VTTCue["line"],
 		snapToLines: false,
@@ -59,15 +59,7 @@ it("lowers and bounds Windows cues without changing content, timing or alignment
 		endTime: 5,
 		text: "Hello مرحبا\nSecond line",
 	};
-	const windows = { ...original };
-	expect(positionSubtitleCue(windows, "windows")).toBe(windows);
-	expect(windows).toEqual({
-		...original,
-		line: -2,
-		snapToLines: true,
-		size: 80,
-	});
-	expect(positionSubtitleCue({ ...original }, "native")).toEqual({
+	expect(positionSubtitleCue({ ...original })).toEqual({
 		...original,
 		line: -3,
 		snapToLines: true,

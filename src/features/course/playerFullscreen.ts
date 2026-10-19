@@ -13,6 +13,7 @@ export function playerFullscreen(
 	port: FullscreenPort,
 	onMode: (mode: FullscreenMode) => void,
 	onError: () => void,
+	options: { preferWrapperForNative?: boolean } = {},
 ) {
 	let mode: FullscreenMode = "none";
 	let originalWindow: boolean | null = null;
@@ -28,6 +29,46 @@ export function playerFullscreen(
 	}
 	function syncElement() {
 		const element = port.elementMode();
+		if (
+			element === "native" &&
+			options.preferWrapperForNative &&
+			!disposed &&
+			!exiting
+		) {
+			if (!entering && !exiting) {
+				cancelled = false;
+				generation++;
+				// Lock before exitElement dispatches another fullscreenchange. Native
+				// video-only fullscreen hides sibling captions; promote it to the same
+				// wrapper/window path as f without touching playback or geometry.
+				entering = Promise.resolve()
+					.then(async () => {
+						try {
+							if (cancelled || disposed || port.elementMode() !== "native")
+								return;
+							await port.exitElement();
+							if (cancelled || disposed) return;
+							if (port.elementMode() === "wrapper" || originalWindow !== null) {
+								syncElement();
+								return;
+							}
+							await enter();
+						} catch {
+							if (!disposed) {
+								publish(
+									port.elementMode() ??
+										(originalWindow !== null ? "window" : "none"),
+								);
+								onError();
+							}
+						}
+					})
+					.finally(() => {
+						entering = null;
+					});
+			}
+			return;
+		}
 		publish(element ?? (originalWindow !== null ? "window" : "none"));
 	}
 	async function leave() {
@@ -104,6 +145,9 @@ export function playerFullscreen(
 			if (entering) return exit();
 			if (checking) return checking;
 			syncElement();
+			// syncElement may have scheduled a Windows native-button promotion.
+			// This explicit f/double-click gesture means exit, not a second entry.
+			if (entering) return exit();
 			if (originalWindow !== null && !port.elementMode()) {
 				// f immediately after an OS exit must enter again, even before the poll.
 				const started = generation;
