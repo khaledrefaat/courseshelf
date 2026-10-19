@@ -37,6 +37,12 @@ export function ManageMenu({ courseId }: { courseId: number }) {
 				Manage
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="min-w-44">
+				<DropdownMenuItem
+					disabled={busy}
+					onClick={() => openCourseAction(courseId, "subtitles")}
+				>
+					Generate course subtitles…
+				</DropdownMenuItem>
 				<DropdownMenuItem disabled={busy} onClick={() => void scan()}>
 					Rescan folder
 				</DropdownMenuItem>

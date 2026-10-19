@@ -1,6 +1,11 @@
 import { appDataDir } from "@tauri-apps/api/path";
 import { remove } from "@tauri-apps/plugin-fs";
 import {
+	allowSubtitleGeneration,
+	cleanupGeneratedSubtitles,
+	prepareSubtitleRemoval,
+} from "@/features/course/subtitleGeneration";
+import {
 	type PickedCover,
 	writeCourseCover,
 } from "@/features/library/add-course/covers";
@@ -71,9 +76,19 @@ export async function deleteCourseFromLibrary(
 		const course = await getById(courseId);
 		if (!course) throw new Error("This course no longer exists.");
 		// SQLite cascades lessons, progress and notes; never touch the course root.
+		const generated = await prepareSubtitleRemoval(courseId);
 		await deleteCourse(courseId);
-		return await cleanupCover(courseId, course.cover_path, "Course deleted");
+		const warning = await cleanupGeneratedSubtitles(generated);
+		return (
+			[
+				await cleanupCover(courseId, course.cover_path, "Course deleted"),
+				warning,
+			]
+				.filter(Boolean)
+				.join(" ") || null
+		);
 	} finally {
+		allowSubtitleGeneration(courseId);
 		saving.delete(courseId);
 	}
 }

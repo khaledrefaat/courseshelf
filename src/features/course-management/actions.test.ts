@@ -29,6 +29,12 @@ vi.mock("@/lib/db/courses", () => ({
 	updateDetails: vi.fn(),
 	delete: vi.fn(),
 }));
+vi.mock("@/features/course/subtitleGeneration", () => ({
+	allowSubtitleGeneration: vi.fn(),
+	cancelGeneration: vi.fn(),
+	cleanupGeneratedSubtitles: vi.fn(async () => null),
+	prepareSubtitleRemoval: vi.fn(async () => []),
+}));
 vi.mock("@/lib/db/lessons", () => ({ listAllByCourse: vi.fn() }));
 vi.mock("@/lib/db/syncCourse", () => ({ syncCourse: vi.fn() }));
 vi.mock("@/lib/scanner/scanCourse", () => ({ scanCourse: vi.fn() }));

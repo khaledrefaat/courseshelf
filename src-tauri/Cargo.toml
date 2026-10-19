@@ -1,6 +1,6 @@
 [package]
 name = "courseshelf"
-version = "0.3.0"
+version = "0.3.1"
 description = "Track your progress through local video courses"
 authors = ["Khaled"]
 edition = "2024"
@@ -30,6 +30,8 @@ percent-encoding = "2"
 subtle = "2"
 # OS-backed secure randomness on Linux and Windows; already present transitively.
 getrandom = "0.4"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
+sha2 = "0.10.9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Already used transitively by Tauri; read actual GDK state rather than Tao's cached request.

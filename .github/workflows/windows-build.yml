@@ -44,6 +44,8 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: pnpm check:rust
+      - name: Prepare pinned CPU-only subtitle helpers (no model)
+        run: pnpm prepare:subtitles
       - name: Build NSIS installer (Windows override is loaded automatically)
         run: pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis -- --locked
       - name: Hash installer

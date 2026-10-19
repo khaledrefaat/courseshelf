@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { registerProgressFlush } from "@/features/course/closeProgress";
+import { GenerateSubtitles } from "@/features/course/GenerateSubtitles";
 import { NextLessonCountdown } from "@/features/course/NextLessonCountdown";
 import { trackPlayback } from "@/features/course/playbackTracking";
 import { firstPlay, playQuietly } from "@/features/course/progressActions";
@@ -47,6 +48,7 @@ export function LessonPlayer({
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const subtitles = useSubtitles(
 		courseId,
+		lesson.id,
 		lesson.relative_path,
 		source,
 		videoRef,
@@ -185,6 +187,14 @@ export function LessonPlayer({
 							/>
 						)}
 					</div>
+					{!subtitles.loading && !expanded && (
+						<GenerateSubtitles
+							courseId={courseId}
+							lessonId={lesson.id}
+							relativePath={lesson.relative_path}
+							available={subtitles.available}
+						/>
+					)}
 					{subtitles.error && (
 						<p role="alert" className="mt-2 text-sm text-destructive">
 							Subtitles unavailable: {subtitles.error}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { CourseSubtitlesDialog } from "@/features/course/CourseSubtitlesDialog";
 import { LocateDialog } from "@/features/course-management/LocateDialog";
 import {
 	closeCourseAction,
@@ -62,7 +63,13 @@ export function ManagementHost() {
 			)}
 			{selection &&
 				course &&
-				(selection.action === "edit" ? (
+				(selection.action === "subtitles" ? (
+					<CourseSubtitlesDialog
+						key={course.id}
+						course={course}
+						onClose={closeCourseAction}
+					/>
+				) : selection.action === "edit" ? (
 					<EditCoverDialog
 						key={course.id}
 						editDetails

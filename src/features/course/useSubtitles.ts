@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import {
 	type RefObject,
 	useEffect,
@@ -12,16 +11,22 @@ import {
 	positionSubtitleCue,
 	readSubtitlePreference,
 	type SubtitleCue,
-	type SubtitleSidecar,
 	writeSubtitlePreference,
 } from "@/features/course/subtitleCues";
+import {
+	loadLessonSubtitle,
+	useSubtitleRevision,
+} from "@/features/course/subtitleGeneration";
 
 export function useSubtitles(
 	courseId: number,
+	lessonId: number,
 	relativePath: string,
 	source: string | null,
 	videoRef: RefObject<HTMLVideoElement | null>,
 ) {
+	const revision = useSubtitleRevision(lessonId);
+	const [loading, setLoading] = useState(true);
 	const nativeTrack = useRef<{
 		video: HTMLVideoElement;
 		track: TextTrack;
@@ -43,19 +48,23 @@ export function useSubtitles(
 	const [installed, setInstalled] = useState(false);
 	const key = `${courseId}:${relativePath}`;
 	useEffect(() => {
+		void revision;
 		if (!source) return;
+		setLoading(true);
 		setSubtitle(null);
 		setFailure(null);
 		return loadSubtitle(
-			() =>
-				invoke<SubtitleSidecar | null>("get_lesson_subtitle", {
-					courseId,
-					relativePath,
-				}),
-			(result) => setSubtitle(result ? { key, ...result } : null),
-			(message) => setFailure({ key, message }),
+			() => loadLessonSubtitle(courseId, lessonId, relativePath),
+			(result) => {
+				setSubtitle(result ? { key, ...result } : null);
+				setLoading(false);
+			},
+			(message) => {
+				setFailure({ key, message });
+				setLoading(false);
+			},
 		);
-	}, [courseId, relativePath, source, key]);
+	}, [courseId, lessonId, relativePath, source, key, revision]);
 	useLayoutEffect(() => {
 		trackReady.current = false;
 		setInstalled(false);
@@ -104,6 +113,7 @@ export function useSubtitles(
 		return () => video.textTracks.removeEventListener("change", changed);
 	}, [installed]);
 	return {
+		loading,
 		available: installed && subtitle?.key === key && failure?.key !== key,
 		enabled,
 		filename: subtitle?.key === key ? subtitle.filename : undefined,

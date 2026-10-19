@@ -1,10 +1,11 @@
 {
 	"name": "courseshelf",
 	"private": true,
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"packageManager": "pnpm@11.17.0",
 	"type": "module",
 	"scripts": {
+		"prepare:subtitles": "node scripts/subtitle-helpers.mjs",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",

@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 /src-tauri/target/
+/src-tauri/resources/subtitle-helpers/*
+!/src-tauri/resources/subtitle-helpers/README.txt
 
 # Local configuration, credentials and SQLite data/backups
 .env

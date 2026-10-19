@@ -12,6 +12,28 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 afterEach(() => vi.useRealTimers());
+it("cancels subtitle work on close without starving progress flushes or extending the timeout", async () => {
+	vi.useFakeTimers();
+	let handler!: () => Promise<void>;
+	closeRequested.mockImplementationOnce((callback: () => Promise<void>) => {
+		handler = callback;
+		return Promise.resolve(vi.fn());
+	});
+	const cancel = vi.fn(() => new Promise<void>(() => {}));
+	await installCloseFlush(cancel);
+	const flush = vi.fn();
+	const unregister = registerProgressFlush(flush);
+	const closed = vi.fn();
+	const closing = handler().then(closed);
+	await vi.advanceTimersByTimeAsync(1);
+	expect(cancel).toHaveBeenCalledOnce();
+	expect(flush).toHaveBeenCalledOnce();
+	expect(closed).not.toHaveBeenCalled();
+	await vi.advanceTimersByTimeAsync(1999);
+	await closing;
+	expect(closed).toHaveBeenCalledOnce();
+	unregister();
+});
 it("waits for a successful final flush", async () => {
 	let done!: () => void;
 	const flush = boundedFlush(

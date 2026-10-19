@@ -35,8 +35,11 @@ not the identity of an unsigned publisher.
 ## Build through GitHub Actions
 
 The toolchain is installed on GitHub's runner, not your Windows computer.
-The current source version is **0.3.0**, producing
-`Courseshelf_0.3.0_x64-setup.exe` and its checksum. The published preview links
+0.3.1 source builds prepare pinned subtitle helpers before packaging; the
+English model is downloaded only after user consent. See
+[subtitle generation](subtitle-generation.md) for setup, size and redistribution checks.
+The current source version is **0.3.1**, producing
+`Courseshelf_0.3.1_x64-setup.exe` and its checksum. The published preview links
 above remain on 0.2.0 until a new installer is built, tested and uploaded.
 
 1. Commit/push the reviewed source yourself. The workflow must exist on the

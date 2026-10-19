@@ -1,5 +1,12 @@
 import { remove } from "@tauri-apps/plugin-fs";
 import { beforeEach, expect, it, vi } from "vitest";
+
+vi.mock("@/features/course/subtitleGeneration", () => ({
+	allowSubtitleGeneration: vi.fn(),
+	cleanupGeneratedSubtitles: vi.fn(async () => null),
+	prepareSubtitleRemoval: vi.fn(async () => []),
+}));
+
 import { writeCourseCover } from "@/features/library/add-course/covers";
 import {
 	deleteCourseFromLibrary,

@@ -11,6 +11,11 @@ import {
 } from "@/lib/db/progressWrites";
 
 let sqlite: DatabaseSync;
+vi.mock("@/features/course/subtitleGeneration", () => ({
+	allowSubtitleGeneration: vi.fn(),
+	cleanupGeneratedSubtitles: vi.fn(async () => null),
+	prepareSubtitleRemoval: vi.fn(async () => []),
+}));
 let progressGate: Promise<void> | undefined;
 let failNotes = false;
 let failProgress = false;

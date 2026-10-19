@@ -20,7 +20,7 @@ it("sets the Linux-only renderer default at main entry, preserving pre-set envir
 
 it("keeps app version and the Cargo root lock entry consistent", () => {
 	const version = pkg.version;
-	expect(version).toBe("0.3.0");
+	expect(version).toBe("0.3.1");
 	expect(JSON.parse(read("src-tauri/tauri.conf.json")).version).toBe(version);
 	expect(
 		read("src-tauri/Cargo.toml").match(

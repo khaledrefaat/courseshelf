@@ -1,5 +1,11 @@
 import { flushPendingData } from "@/features/course/closeProgress";
 import {
+	allowSubtitleGeneration,
+	cancelGeneration,
+	cleanupGeneratedSubtitles,
+	prepareSubtitleRemoval,
+} from "@/features/course/subtitleGeneration";
+import {
 	relocationMatch,
 	syncMessage,
 	validTitle,
@@ -58,6 +64,7 @@ export async function previewRelocation(courseId: number, path: string) {
 
 export function rescan(course: courses.Course) {
 	return manage(async () => {
+		await cancelGeneration(course.id);
 		pauseCourse(course.id);
 		await flushPendingData();
 		const result = await syncCourse(course.id);
@@ -74,6 +81,7 @@ export function rescan(course: courses.Course) {
 
 export function relocate(course: courses.Course, path: string) {
 	return manage(async () => {
+		await cancelGeneration(course.id);
 		const current = await courses.getById(course.id);
 		if (!current || current.root_path !== course.root_path)
 			throw new Error("The course folder changed. Reopen Locate folder.");
@@ -158,18 +166,24 @@ export function removeCourse(courseId: number) {
 		const course = await courses.getById(courseId);
 		if (!course) throw new Error("Course no longer exists.");
 		const ids = (await listAllByCourse(courseId)).map((lesson) => lesson.id);
+		const subtitlePreparation = prepareSubtitleRemoval(courseId);
 		// Block new writes synchronously before pausing (pause itself normally saves).
 		const draining = discardLessonWrites(ids);
 		const drafts = notesController.discardCourse(courseId);
 		pauseCourse(courseId);
-		await Promise.all([draining, drafts]);
+		let generated: Awaited<ReturnType<typeof prepareSubtitleRemoval>>;
 		try {
+			[generated] = await Promise.all([subtitlePreparation, draining, drafts]);
 			await courses.delete(courseId);
 		} catch (cause) {
 			allowLessonWrites(ids);
+			allowSubtitleGeneration(courseId);
 			throw cause;
 		}
 		const warnings: string[] = [];
+		const subtitleWarning = await cleanupGeneratedSubtitles(generated);
+		if (subtitleWarning) warnings.push(subtitleWarning);
+		allowSubtitleGeneration(courseId);
 		const cleanup = await cleanupCover(
 			courseId,
 			course.cover_path,

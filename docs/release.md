@@ -4,9 +4,15 @@ For the published Windows and Ubuntu downloads, see the [README](../README.md#do
 Ubuntu packages target **Ubuntu 24.04 x64** with WebKitGTK 4.1. Build on the oldest
 Ubuntu version you intend to support; newer glibc builds may not run on older systems.
 
-The source version is **0.3.0**. Building produces
-`Courseshelf_0.3.0_amd64.deb`; the Windows workflow produces
-`Courseshelf_0.3.0_x64-setup.exe`. These are not published automatically.
+The source version is **0.3.1**. Building produces
+`Courseshelf_0.3.1_amd64.deb`; the Windows workflow produces
+`Courseshelf_0.3.1_x64-setup.exe`. These are not published automatically.
+
+This release adds offline English subtitle generation for individual lessons and
+whole courses, optional no-overwrite `.en.vtt` export, CPU-optimized helpers with
+a portable fallback, and double-click player fullscreen. Back up before upgrading:
+the subtitle metadata migration (0005) runs automatically. Published 0.3.0 download
+links stay unchanged until the new installers are uploaded and verified.
 
 ## Prerequisites and build
 
@@ -24,6 +30,7 @@ repository root:
 
 ~~~sh
 pnpm install --frozen-lockfile
+pnpm prepare:subtitles
 pnpm check
 pnpm check:rust
 pnpm tauri build --bundles deb -- --locked
@@ -50,7 +57,7 @@ Vite's existing native-config compatibility and large-chunk warnings are non-fat
 From the repository root:
 
 ~~~sh
-sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.3.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Courseshelf_0.3.1_amd64.deb
 courseshelf
 ~~~
 
@@ -84,6 +91,12 @@ No automatic updater or signing is configured. Use preview labels until ready fo
 wider distribution.
 
 ## Security maintenance
+
+0.3.1 builds package fixed CPU-only generation helpers (not the model).
+Preparation, licensing/source-distribution obligations, installer-size impact and
+manual checks are documented in [subtitle generation](subtitle-generation.md).
+Do not distribute new installers until these helper obligations and native tests
+are completed. The published 0.3.0 downloads are unchanged.
 
 Production scripts/styles/fonts stay local; Tauri adds CSP hashes/nonces for
 bundled code and Base UI runtime styles. Inline style attributes are allowed for
@@ -137,6 +150,14 @@ Custom invokes (not plugin ACL permission names):
 
 | Command | Frontend call site | Backend restriction |
 | --- | --- | --- |
+| `subtitle_generation_status` | `course/subtitleGeneration.ts` | Reports one in-memory job and fixed model/helper availability; no file content. |
+| `start_subtitle_generation` | Same service | One job; registered/granted lesson; pinned helpers, English only; explicit consent for HTTPS model download and SHA-256 verification. |
+| `cancel_subtitle_generation` | Same service, course management | Cancels matching job/course and kills its helper; no arbitrary PID/process command. |
+| `validate_generated_subtitle_job` | Same service before DB save | Only the current ready job's bounded staged VTT. |
+| `finish_subtitle_generation` | Same service after DB save | Commits or discards that job's app-owned output only. |
+| `read_generated_subtitle` | Same service | Registered lesson, source fingerprint and owned app-data filename; no arbitrary path or HTTP route. |
+| `remove_generated_subtitle` | Same service, removal cleanup | Exact lesson-owned random filename under app-data subtitles only; no links. |
+| `export_generated_subtitle` | `course/courseSubtitles.ts` | Copies a validated, source-matched app-data VTT beside its registered/granted lesson; derived destination, no links or overwrites; no new frontend fs grant. |
 | `get_lesson_subtitle` | `course/useSubtitles.ts` | Read-only matching VTT/SRT beside a validated registered lesson, persisted fs scope, no links/reparse points; maximum 2 MB. No HTTP route or new permission. |
 | `frontend_ready` | `components/StartupReady.tsx` after shell mount | Main window only; Windows reveal-once startup gate, no-op on other platforms. |
 | `register_course_roots` | `lib/playback.ts` startup | Canonical roots inside persisted fs scope. |

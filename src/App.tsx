@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CoursePage } from "@/features/course/CoursePage";
+import { CourseSubtitlesStatus } from "@/features/course/CourseSubtitlesDialog";
 import { ManagementHost } from "@/features/course-management/ManagementHost";
 import { useManagement } from "@/features/course-management/state";
 import { AddCourseDialog } from "@/features/library/add-course/AddCourseDialog";
@@ -35,6 +36,7 @@ function Shell() {
 		>
 			<NotesWarnings />
 			<ManagementHost />
+			<CourseSubtitlesStatus />
 			{!courseRoute && (
 				<header className="border-b bg-header text-header-foreground">
 					<div className="mx-auto flex min-h-18 max-w-360 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-10">

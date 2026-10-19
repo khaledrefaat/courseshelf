@@ -39,10 +39,15 @@ export async function boundedFlush(
 	}
 }
 
-export async function installCloseFlush() {
+export async function installCloseFlush(
+	onClosing: () => Promise<unknown> = async () => {},
+) {
 	// onCloseRequested awaits this handler and then destroys the window itself.
 	return getCurrentWindow().onCloseRequested(() =>
 		boundedFlush(async () => {
+			const cancelling = Promise.resolve()
+				.then(onClosing)
+				.catch(() => undefined);
 			for (const flush of flushers) {
 				try {
 					flush();
@@ -50,7 +55,7 @@ export async function installCloseFlush() {
 					/* One failed flusher must not block the rest. */
 				}
 			}
-			await waitForProgressWrites();
+			await Promise.all([cancelling, waitForProgressWrites()]);
 		}),
 	);
 }

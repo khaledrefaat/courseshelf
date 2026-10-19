@@ -3,6 +3,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
 import { StartupReady } from "@/components/StartupReady";
+import {
+	cancelGeneration,
+	initializeSubtitleGeneration,
+} from "@/features/course/subtitleGeneration";
 import "@/index.css";
 import { installCloseFlush } from "@/features/course/closeProgress";
 import { initializePlayback, playbackErrorMessage } from "@/lib/playback";
@@ -14,7 +18,11 @@ const stopTheme = followSystemTheme(
 );
 if (import.meta.hot) import.meta.hot.dispose(stopTheme);
 
-const closeListener = installCloseFlush().catch(() => undefined);
+const closeListener = installCloseFlush(() => cancelGeneration()).catch(
+	() => undefined,
+);
+const stopGeneration = initializeSubtitleGeneration();
+if (import.meta.hot) import.meta.hot.dispose(stopGeneration);
 if (import.meta.hot)
 	import.meta.hot.dispose(() => {
 		void closeListener.then((unlisten) => unlisten?.());

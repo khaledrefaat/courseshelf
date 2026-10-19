@@ -7,6 +7,7 @@ import {
 	useState,
 } from "react";
 import type { trackPlayback } from "@/features/course/playbackTracking";
+import { playerDoubleClick } from "@/features/course/playerDoubleClick";
 import {
 	type FullscreenMode,
 	playerFullscreen,
@@ -178,6 +179,15 @@ export function usePlayerControls() {
 				event.target === binding.current?.video || event.target === wrapper,
 			);
 		const changed = () => controller.syncElement();
+		const doubleClick = (event: MouseEvent) =>
+			playerDoubleClick(
+				event,
+				binding.current?.video ?? null,
+				hasPlayerBlockingPopup(document),
+				() => {
+					void controller.toggle();
+				},
+			);
 		const windowChanged = () => {
 			void controller.syncWindow();
 		};
@@ -189,6 +199,7 @@ export function usePlayerControls() {
 		document.addEventListener("keyup", keyup, true);
 		document.addEventListener("keypress", keypress, true);
 		document.addEventListener("click", click, true);
+		wrapper.addEventListener("dblclick", doubleClick, true);
 		document.addEventListener("fullscreenchange", changed);
 		document.addEventListener("webkitfullscreenchange", changed);
 		window.addEventListener("resize", windowChanged);
@@ -209,6 +220,7 @@ export function usePlayerControls() {
 			document.removeEventListener("keyup", keyup, true);
 			document.removeEventListener("keypress", keypress, true);
 			document.removeEventListener("click", click, true);
+			wrapper.removeEventListener("dblclick", doubleClick, true);
 			document.removeEventListener("fullscreenchange", changed);
 			document.removeEventListener("webkitfullscreenchange", changed);
 			window.removeEventListener("resize", windowChanged);

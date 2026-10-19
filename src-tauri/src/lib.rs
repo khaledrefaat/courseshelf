@@ -2,6 +2,7 @@ mod backup_target;
 mod course_scanner;
 mod fs_links;
 mod startup;
+mod subtitle_generation;
 mod subtitles;
 mod video_stream;
 mod window_state;
@@ -24,6 +25,8 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            app.manage(subtitle_generation::Generation::default());
+            let _ = subtitle_generation::clean_interrupted(app.handle());
             #[cfg(windows)]
             startup::install(app.handle())?;
             app.manage(video_stream::VideoStream::new()?);
@@ -69,6 +72,14 @@ pub fn run() {
                             ),
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 5,
+                            description: "generated_subtitles",
+                            sql: include_str!(
+                                "../../src/lib/db/migrations/0005_generated_subtitles.sql"
+                            ),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),
@@ -76,9 +87,22 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                subtitle_generation::cancel_on_close(window.app_handle());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             startup::frontend_ready,
             subtitles::get_lesson_subtitle,
+            subtitle_generation::subtitle_generation_status,
+            subtitle_generation::start_subtitle_generation,
+            subtitle_generation::cancel_subtitle_generation,
+            subtitle_generation::finish_subtitle_generation,
+            subtitle_generation::validate_generated_subtitle_job,
+            subtitle_generation::read_generated_subtitle,
+            subtitle_generation::remove_generated_subtitle,
+            subtitle_generation::export_generated_subtitle,
             window_state::actual_window_fullscreen,
             video_stream::register_course_roots,
             video_stream::register_course_root,

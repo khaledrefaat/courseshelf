@@ -92,3 +92,11 @@ schema while the app is running.
 
 Cover cleanup is best-effort. A failed cleanup after editing/removal may leave
 an orphaned image in `covers/`. There is no automatic sweep.
+
+In builds with generated subtitles (migration 0005), database backups include
+subtitle metadata but **not** app-data `subtitles/` files or the shared `models/`
+download. Copy `subtitles/` separately, while the app is closed, to preserve them.
+On restore, missing/stale generated files are invalidated on use and can be
+regenerated; the English model can be downloaded again. Existing course-folder
+sidecars (including generated exports) are not part of the database backup: copy
+them with your videos. Removing a course does not delete those exported files.

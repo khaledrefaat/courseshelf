@@ -12,6 +12,8 @@ Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure
 - Tests: `pnpm test`
 - Frontend gates: `pnpm check` (typecheck + lint + tests)
 - Rust gates: `pnpm check:rust` (fmt check, clippy all targets with warnings denied, tests)
+- Prepare subtitle helpers: `pnpm prepare:subtitles` (required before generation/release builds;
+  builds both CPU variants, does not download or bundle the model)
 - Release deb: `pnpm tauri build --bundles deb`
 - Windows installer: manual `Windows installer` GitHub Actions workflow; see docs/windows.md.
   No local Windows toolchain is required for installation/testing. Windows runtime checks remain manual.
@@ -91,6 +93,45 @@ and the folder-tree sidebar.
 - Don't change video playback or the asset protocol setup without telling me.
 
 
+## Subtitles and generation
+- Existing matching VTT/SRT sidecars take priority over generated caches. Invalid or
+  unreadable existing sidecars produce a visible error, never automatic replacement.
+- English generation uses fixed bundled whisper.cpp/FFmpeg executables from Rust,
+  without a shell, uploads, frontend HTTP grants or arbitrary process arguments.
+  Windows helpers use CREATE_NO_WINDOW. Never run helpers from PATH.
+- `base.en` is already selected. Download it only after explicit consent; verify its
+  pinned size/SHA-256 before installation and before each lesson's generation. Never
+  bundle the model or silently skip integrity checks to improve speed.
+- Bundle portable and AVX2 helpers. Select AVX2 only after checking every required CPU/OS
+  feature, including MSVC scalar-instruction assumptions; otherwise use the portable
+  helper. Keep machine-native compiler flags off. Use at most six CPU threads, capped
+  by available parallelism, with no GPU. Changes to model/decoding defaults need approval.
+- Metadata lives in `generated_subtitles` (migration 0005). Model, generated VTT cache
+  and job audio/staging files live in app data (`models/`, `subtitles/`, `subtitle-jobs/`).
+  Keep source fingerprints and lesson-owned filenames; changed videos invalidate caches.
+  Generation must not play lessons or alter watched/completed/position/notes data.
+- Single-lesson generation stays in app data. **Manage → Generate course subtitles…**
+  runs non-missing lessons sequentially in course order, skips existing sidecars and
+  reuses valid caches. One global reservation prevents competing single/course jobs.
+  Keep the queue outside lesson components; navigation must not restart or cancel it.
+- The course dialog defaults **Save subtitles beside videos** to checked; unchecking it
+  keeps output in app data only. Export creates `<video-stem>.en.vtt`, retaining the cache.
+  Use only the narrow Rust export command: derive the destination from a registered,
+  persisted-grant lesson, reject symlinks/reparse points/traversal, and never overwrite.
+- Export writes/syncs a unique sibling temporary file, then publishes it using an
+  exclusive hard link. Keep this no-replace guarantee. Read-only/unsupported filesystems
+  (e.g. exFAT) fail visibly while retaining cached subtitles. Remove only this operation's
+  temporary file; report cleanup failures. No course-folder sweep or broad fs grants.
+- Show current lesson/stage, counts, Cancel and per-lesson errors. Continue after
+  individual failures; distinguish generation failures from export failures. Cancel
+  matching queues on rescan/relocate/removal and drain in-flight exports before mutation.
+  Cancel on close without extending the shared two-second close timeout. Queues are not
+  persisted across restarts; rerunning skips/reuses completed work.
+- Removing a course cleans its app-data caches best-effort, never exported sidecars or
+  videos. DB backups contain metadata, not the model, cached files or exported sidecars.
+  Keep private transcripts/models/tools in ignored local folders. See
+  `docs/subtitle-generation.md` for limits, build/licensing details and manual checks.
+
 ## Video playback
 - Matching VTT/SRT sidecars are read through `get_lesson_subtitle` inside registered,
   granted course folders, never through HTTP/asset URLs. Native text-track cues render
@@ -154,9 +195,12 @@ and the folder-tree sidebar.
 
 
 ## File safety
-- Never delete, move, rename or modify anything inside a course folder. Courseshelf only
-  writes to its own app data (database, `covers/`). Removing a course removes database rows
-  and its cover copy, never the videos.
+- Never delete, move, rename or modify existing files inside a course folder.
+  The explicit exception is the approved subtitle export: create a new .en.vtt
+  beside a registered/granted lesson using a unique temporary file and no-replace
+  publication. Clean only that export's own temporary file; never overwrite sidecars.
+  All other writes stay in app data. Removing a course removes database rows and
+  owned app-data files, never videos or exported sidecars. See docs/subtitle-generation.md.
 - Cover loading and cleanup share the scoped path resolver in src/lib/cover-paths.ts.
   Support native Windows separators without weakening traversal/outside-path checks;
   cleanup still requires the exact course-owned UUID filename.

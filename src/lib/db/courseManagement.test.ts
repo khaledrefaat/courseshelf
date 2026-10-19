@@ -10,6 +10,11 @@ import {
 import { setArchived, updateCover } from "@/lib/db/courses";
 
 let sqlite: DatabaseSync;
+vi.mock("@/features/course/subtitleGeneration", () => ({
+	allowSubtitleGeneration: vi.fn(),
+	cleanupGeneratedSubtitles: vi.fn(async () => null),
+	prepareSubtitleRemoval: vi.fn(async () => []),
+}));
 const bindings = (values: SQLInputValue[]) =>
 	Object.fromEntries(values.map((value, index) => [`$${index + 1}`, value]));
 vi.mock("@/lib/db/db", () => ({

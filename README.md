@@ -32,6 +32,11 @@ Feedback from other machines is welcome.
 
 No Rust or development tools are needed to install either version.
 
+**0.3.1 is being prepared.** The source includes offline English subtitle
+generation, a whole-course queue with optional `.en.vtt` exports, optimized CPU
+helpers, and double-click fullscreen. The download links above still point to
+0.3.0 until the new installers have been built, tested and published.
+
 ### Windows
 
 Download and run Courseshelf_0.3.0_x64-setup.exe. The installer may need internet
@@ -64,7 +69,8 @@ dependencies and may need internet access. Quit any running copy before updating
 - **Watch comfortably:** native video controls, keyboard shortcuts, fullscreen and
   a five-second next-lesson countdown you can cancel with S.
 - **Watch with subtitles:** matching VTT/SRT files load automatically, with a
-  remembered On/Off toggle. Subtitle generation is not included.
+  remembered On/Off toggle. Source builds also support English subtitle generation
+  for a lesson or a whole course—see [subtitle generation](#generate-english-subtitles-031).
 - **Keep your library up to date:** rescan or relocate a course without losing
   matching lessons' progress and notes. Missing files are marked, not forgotten.
 - **Make it feel at home:** light and dark colors follow your system theme.
@@ -82,9 +88,12 @@ library removes its Courseshelf data, not the video files on disk.
 
 Back up your progress and notes before moving data or upgrading. See the
 [backup and restore guide](docs/backup-and-restore.md) for data locations and
-manual instructions. Backups do not include videos or cover images.
+manual instructions. Database backups do not include videos, cover images,
+generated subtitle files or the downloaded model.
 
 ## Subtitles
+
+### Use existing subtitles
 
 Place a matching `.vtt` or `.srt` beside the lesson video, for example
 `Introduction.mp4` and `Introduction.en.vtt`. Exact filename matches take
@@ -96,11 +105,43 @@ when opening a lesson.
 Subtitles start on unless you previously switched them off. Use **Subtitles
 On/Off** at the top-right of the player; the preference persists across restarts.
 The button is hidden when no matching sidecar exists. Native controls remain in
-place. Embedded subtitles and automatic transcription are not part of this feature.
+place. Embedded subtitle tracks are not supported.
 Basic timed text is supported; VTT styles/regions are ignored. Files must be UTF-8
 or BOM-marked UTF-16, at most 2 MB and 10,000 cues. Invalid subtitles show a message
 without preventing video playback. Subtitle support is included in 0.3.0; update
 older installations to use it.
+
+### Generate English subtitles (0.3.1)
+
+**Included in the 0.3.1 source, not the published 0.3.0 installers linked above.**
+Build a new copy to use this feature; existing installations do not gain it automatically.
+
+- **One lesson:** open a lesson without subtitles and click **Generate English subtitles**
+  below the player. The generated file stays in Courseshelf's app data.
+- **Whole course:** choose **Manage → Generate course subtitles…**. Lessons are processed
+  one at a time in course order. Existing subtitles are skipped and valid generated
+  copies are reused, so rerunning does not start everything from scratch.
+- **Save beside your videos:** the course dialog has **Save subtitles beside videos**
+  checked by default. It creates `Introduction.en.vtt` beside `Introduction.mp4`,
+  while keeping an app-data copy too. Uncheck it for app-data-only output.
+
+The first use asks permission to download the English `base.en` model (~142 MiB).
+Generation then runs locally on your CPU, offline, without uploading audio or needing
+an account or API key. Speed depends on your computer and lesson; programming terms
+and names can be transcribed incorrectly. This generates files, not live captions.
+
+The course queue shows progress, Cancel and a final summary, and keeps running when
+you navigate elsewhere in the app. Closing the app cancels it; after relaunching,
+start the queue again to skip or reuse completed work.
+
+Existing subtitles and videos are never overwritten. Safe folder export requires
+a writable filesystem with hard-link support, normally ext4 or NTFS. Read-only
+folders and unsupported filesystems such as exFAT show export errors, but generated
+subtitles remain usable from Courseshelf's app data. Removing a course does not
+delete exported sidecars or videos.
+
+See [subtitle setup, storage, limits and testing](docs/subtitle-generation.md) for
+details, including build requirements and what to back up.
 
 ## Development
 
@@ -111,6 +152,8 @@ Ubuntu build/runtime packages are listed in the [release guide](docs/release.md)
 
 ~~~sh
 pnpm install --frozen-lockfile
+# Prepare native helpers for subtitle generation and release packaging (no model download).
+pnpm prepare:subtitles
 pnpm tauri dev
 ~~~
 
