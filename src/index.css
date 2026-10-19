@@ -176,3 +176,18 @@
 .lesson-video::cue {
 	font-size: clamp(16px, 1.6vw, 28px);
 }
+
+/* WebView2 captions use explicit sizes, not GTK's viewport-relative sizing.
+   Keep these overrides scoped to Windows, including native video fullscreen. */
+.lesson-video[data-subtitle-platform="windows"]::cue {
+	font-family: "Inter Variable", sans-serif;
+	font-size: 20px;
+	font-weight: 400;
+	line-height: 1.35;
+}
+
+.lesson-video[data-subtitle-platform="windows"][data-subtitle-fullscreen="true"]::cue,
+.lesson-video[data-subtitle-platform="windows"]:fullscreen::cue,
+:fullscreen .lesson-video[data-subtitle-platform="windows"]::cue {
+	font-size: 24px;
+}

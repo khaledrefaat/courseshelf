@@ -11,6 +11,7 @@ import {
 	positionSubtitleCue,
 	readSubtitlePreference,
 	type SubtitleCue,
+	subtitlePlatform,
 	writeSubtitlePreference,
 } from "@/features/course/subtitleCues";
 import {
@@ -25,6 +26,7 @@ export function useSubtitles(
 	source: string | null,
 	videoRef: RefObject<HTMLVideoElement | null>,
 ) {
+	const platform = subtitlePlatform();
 	const revision = useSubtitleRevision(lessonId);
 	const [loading, setLoading] = useState(true);
 	const nativeTrack = useRef<{
@@ -81,7 +83,8 @@ export function useSubtitles(
 			const clear = populateSubtitleTrack(
 				track,
 				subtitle.cues,
-				(start, end, text) => positionSubtitleCue(new VTTCue(start, end, text)),
+				(start, end, text) =>
+					positionSubtitleCue(new VTTCue(start, end, text), platform),
 			);
 			track.mode = enabledRef.current ? "showing" : "disabled";
 			trackReady.current = true;
@@ -97,7 +100,7 @@ export function useSubtitles(
 				message: "This webview could not display the subtitles.",
 			});
 		}
-	}, [subtitle, key, source, videoRef]);
+	}, [subtitle, key, source, videoRef, platform]);
 	useEffect(() => {
 		const current = nativeTrack.current;
 		if (!installed || !current) return;
@@ -113,6 +116,7 @@ export function useSubtitles(
 		return () => video.textTracks.removeEventListener("change", changed);
 	}, [installed]);
 	return {
+		platform,
 		loading,
 		available: installed && subtitle?.key === key && failure?.key !== key,
 		enabled,

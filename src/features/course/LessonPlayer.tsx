@@ -147,6 +147,8 @@ export function LessonPlayer({
 							preload="metadata"
 							src={source}
 							aria-label={lesson.title}
+							data-subtitle-platform={subtitles.platform}
+							data-subtitle-fullscreen={expanded || undefined}
 							className={
 								expanded
 									? "lesson-video h-full w-full bg-player object-contain"

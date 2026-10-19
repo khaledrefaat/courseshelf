@@ -7,6 +7,7 @@ import {
 	readSubtitlePreference,
 	SUBTITLE_PREFERENCE,
 	type SubtitleSidecar,
+	subtitlePlatform,
 	writeSubtitlePreference,
 } from "@/features/course/subtitleCues";
 
@@ -17,6 +18,7 @@ it("raises native subtitles from the bottom without changing text or timing", ()
 	const cue = {
 		line: "auto" as VTTCue["line"],
 		snapToLines: false,
+		size: 100,
 		startTime: 2,
 		endTime: 5,
 		text: "Hello مرحبا",
@@ -25,9 +27,50 @@ it("raises native subtitles from the bottom without changing text or timing", ()
 	expect(cue).toEqual({
 		line: -3,
 		snapToLines: true,
+		size: 100,
 		startTime: 2,
 		endTime: 5,
 		text: "Hello مرحبا",
+	});
+});
+
+it("detects WebView2 on Windows without changing Linux or other platforms", () => {
+	expect(
+		subtitlePlatform(
+			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+		),
+	).toBe("windows");
+	for (const agent of [
+		"",
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/605.1.15",
+	])
+		expect(subtitlePlatform(agent)).toBe("native");
+});
+
+it("lowers and bounds Windows cues without changing content, timing or alignment", () => {
+	const original = {
+		line: "auto" as VTTCue["line"],
+		snapToLines: false,
+		size: 100,
+		position: "auto",
+		align: "center",
+		startTime: 2,
+		endTime: 5,
+		text: "Hello مرحبا\nSecond line",
+	};
+	const windows = { ...original };
+	expect(positionSubtitleCue(windows, "windows")).toBe(windows);
+	expect(windows).toEqual({
+		...original,
+		line: -2,
+		snapToLines: true,
+		size: 80,
+	});
+	expect(positionSubtitleCue({ ...original }, "native")).toEqual({
+		...original,
+		line: -3,
+		snapToLines: true,
 	});
 });
 

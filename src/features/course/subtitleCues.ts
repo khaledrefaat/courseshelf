@@ -65,13 +65,23 @@ export function writeSubtitlePreference(
 	}
 }
 
+export function subtitlePlatform(
+	userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent,
+): "windows" | "native" {
+	// WebView2 identifies Windows here; do not apply its layout workaround to GTK.
+	return /\bWindows\b/i.test(userAgent) ? "windows" : "native";
+}
+
 export function positionSubtitleCue<
-	T extends Pick<VTTCue, "line" | "snapToLines">,
->(cue: T): T {
+	T extends Pick<VTTCue, "line" | "snapToLines" | "size">,
+>(cue: T, platform: "windows" | "native" = "native"): T {
 	// Negative line numbers count upwards from the bottom of the video.
-	// Leave two extra lines of breathing room above the default bottom position.
+	// GTK keeps its existing two extra lines; Windows needs just one.
 	cue.snapToLines = true;
-	cue.line = -3;
+	cue.line = platform === "windows" ? -2 : -3;
+	// WebView2 needs less bottom clearance and a bounded, centered text area.
+	// Keep WebKitGTK's existing width and positioning entirely unchanged.
+	if (platform === "windows") cue.size = 80;
 	return cue;
 }
 
