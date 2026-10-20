@@ -1,5 +1,12 @@
 import { ArrowLeft, Check, ChevronRight } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { CourseSidebar } from "@/features/course/CourseSidebar";
@@ -15,6 +22,8 @@ import { usePlayerControls } from "@/features/course/usePlayerControls";
 import { ManageMenu } from "@/features/course-management/ManageMenu";
 import { refreshedLessonMissing } from "@/features/course-management/model";
 import { useManagement } from "@/features/course-management/state";
+import { FlashcardsPanel } from "@/features/flashcards/FlashcardsPanel";
+import { openFlashcardReview } from "@/features/flashcards/openReview";
 import { NotesPanel } from "@/features/notes/NotesPanel";
 import type { CourseOutline, OutlineLesson } from "@/lib/db/courseOutline";
 
@@ -54,6 +63,66 @@ function CourseContent({
 	const navigate = useNavigate();
 	const management = useManagement();
 	const controls = usePlayerControls();
+	const [availability, setAvailability] = useState({
+		lessonId: lesson.id,
+		count: 0,
+	});
+	const [reviewRequested, setReviewRequested] = useState(0);
+	const [reviewError, setReviewError] = useState<string | null>(null);
+	const cancelCountdown = useRef<(() => boolean) | null>(null);
+	const currentLesson = useRef(lesson.id);
+	currentLesson.current = lesson.id;
+	const reviewEpoch = useRef(0);
+	const reviewVisit = useRef(false);
+	const reviewBlocked = management.busy || management.selection !== null;
+	useLayoutEffect(() => {
+		void lesson.id;
+		void reviewBlocked;
+		reviewVisit.current = !reviewBlocked;
+		return () => {
+			reviewVisit.current = false;
+			reviewEpoch.current++;
+		};
+	}, [lesson.id, reviewBlocked]);
+	const onAvailability = useCallback(
+		(count: number) => setAvailability({ lessonId: lesson.id, count }),
+		[lesson.id],
+	);
+	const bindAutoAdvance = useCallback(
+		(cancel: () => boolean) => {
+			cancelCountdown.current = cancel;
+			const unbind = controls.bindAutoAdvance(cancel);
+			return () => {
+				unbind();
+				if (cancelCountdown.current === cancel) cancelCountdown.current = null;
+			};
+		},
+		[controls.bindAutoAdvance],
+	);
+	const openReview = async (endedCurrent?: () => boolean) => {
+		const id = lesson.id;
+		const ticket = ++reviewEpoch.current;
+		const current = () =>
+			reviewVisit.current &&
+			currentLesson.current === id &&
+			reviewEpoch.current === ticket &&
+			(!endedCurrent || endedCurrent());
+		setReviewError(null);
+		await openFlashcardReview({
+			// Automatic review already owns the ended state, with no countdown.
+			cancel: () => {
+				if (!endedCurrent) cancelCountdown.current?.();
+			},
+			exitFullscreen: controls.exit,
+			current,
+			open: () => setReviewRequested((value) => value + 1),
+		}).catch(() => {
+			if (current())
+				setReviewError(
+					"Could not exit fullscreen. Exit it manually, then open Review cards.",
+				);
+		});
+	};
 	const { focus } = controls;
 	// Only navigation changes focus, never completion, position or note saves.
 	useLayoutEffect(() => {
@@ -155,7 +224,12 @@ function CourseContent({
 							nextLesson={model.next}
 							onAdvance={() => move(model.next)}
 							advanceBlocked={management.busy || management.selection !== null}
-							bindAutoAdvance={controls.bindAutoAdvance}
+							bindAutoAdvance={bindAutoAdvance}
+							reviewCount={
+								availability.lessonId === lesson.id ? availability.count : 0
+							}
+							onReview={() => void openReview()}
+							onEndedReview={openReview}
 						/>
 						<div
 							aria-hidden="true"
@@ -211,6 +285,24 @@ function CourseContent({
 						{progressError && (
 							<p role="alert" className="mt-4 text-sm text-destructive">
 								{progressError}
+							</p>
+						)}
+						<FlashcardsPanel
+							key={lesson.id}
+							courseId={outline.course.id}
+							lessonId={lesson.id}
+							reviewRequested={reviewRequested}
+							onReview={() => void openReview()}
+							onReviewClosed={() => {
+								reviewEpoch.current++;
+								controls.focus();
+							}}
+							onAvailability={onAvailability}
+							disabled={management.busy || management.selection !== null}
+						/>
+						{reviewError && (
+							<p role="alert" className="mt-3 text-sm text-destructive">
+								{reviewError}
 							</p>
 						)}
 						<NotesPanel

@@ -6,7 +6,7 @@ let notice = "";
 let locateId: number | undefined;
 let selection: {
 	courseId: number;
-	action: "edit" | "remove" | "locate" | "subtitles";
+	action: "edit" | "remove" | "locate" | "subtitles" | "flashcards";
 } | null = null;
 let version = 0;
 const playbackVersions = new Map<number, number>();
@@ -31,7 +31,7 @@ export function useManagement() {
 }
 export function openCourseAction(
 	courseId: number,
-	action: "edit" | "remove" | "locate" | "subtitles",
+	action: "edit" | "remove" | "locate" | "subtitles" | "flashcards",
 ) {
 	if (!busy) {
 		selection = { courseId, action };

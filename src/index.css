@@ -40,6 +40,16 @@
 	--player: #191510;
 	--overlay: #0d0a07;
 	--player-foreground: #fffcf7;
+	/* Review keeps a white surface with dark text and plum accents in both themes. */
+	--review: #ffffff;
+	--review-foreground: #18181b;
+	--review-muted: #62616b;
+	--review-border: #e4dce2;
+	--review-hover: #f3e8ec;
+	--review-accent: #843b68;
+	--review-action-foreground: #ffffff;
+	--review-action-hover: #6e3056;
+	--review-shadow: rgb(13 10 7 / 0.28);
 	/* "Up next" pill over the video: solid white in light mode, dark glass in
 	   dark mode (alpha baked into the .dark token) — theme-aware, unlike the
 	   always-dark player tokens. Blur is applied dark-only in the component. */

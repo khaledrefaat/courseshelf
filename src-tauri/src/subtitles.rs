@@ -8,8 +8,8 @@ const MAX_BYTES: u64 = 2 * 1024 * 1024;
 
 #[derive(Serialize)]
 pub struct Subtitle {
-    filename: String,
-    content: String,
+    pub(crate) filename: String,
+    pub(crate) content: String,
 }
 
 fn rank(video_stem: &str, filename: &str) -> Option<u8> {

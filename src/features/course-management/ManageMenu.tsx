@@ -39,6 +39,12 @@ export function ManageMenu({ courseId }: { courseId: number }) {
 			<DropdownMenuContent align="end" className="min-w-44">
 				<DropdownMenuItem
 					disabled={busy}
+					onClick={() => openCourseAction(courseId, "flashcards")}
+				>
+					Generate course flashcards…
+				</DropdownMenuItem>
+				<DropdownMenuItem
+					disabled={busy}
 					onClick={() => openCourseAction(courseId, "subtitles")}
 				>
 					Generate course subtitles…

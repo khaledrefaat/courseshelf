@@ -1,5 +1,6 @@
 mod backup_target;
 mod course_scanner;
+mod flashcards;
 mod fs_links;
 mod startup;
 mod subtitle_generation;
@@ -25,6 +26,7 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            app.manage(flashcards::Flashcards::default());
             app.manage(subtitle_generation::Generation::default());
             let _ = subtitle_generation::clean_interrupted(app.handle());
             #[cfg(windows)]
@@ -80,6 +82,20 @@ pub fn run() {
                             ),
                             kind: tauri_plugin_sql::MigrationKind::Up,
                         },
+                        tauri_plugin_sql::Migration {
+                            version: 6,
+                            description: "flashcards",
+                            sql: include_str!("../../src/lib/db/migrations/0006_flashcards.sql"),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
+                        tauri_plugin_sql::Migration {
+                            version: 7,
+                            description: "flashcard_context",
+                            sql: include_str!(
+                                "../../src/lib/db/migrations/0007_flashcard_context.sql"
+                            ),
+                            kind: tauri_plugin_sql::MigrationKind::Up,
+                        },
                     ],
                 )
                 .build(),
@@ -90,9 +106,18 @@ pub fn run() {
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 subtitle_generation::cancel_on_close(window.app_handle());
+                flashcards::cancel_on_close(window.app_handle());
             }
         })
         .invoke_handler(tauri::generate_handler![
+            flashcards::flashcards_key,
+            flashcards::flashcards_prepare,
+            flashcards::flashcards_begin,
+            flashcards::flashcards_request,
+            flashcards::flashcards_cancel,
+            flashcards::flashcards_validate_job,
+            flashcards::flashcards_finish,
+            flashcards::flashcards_discard,
             startup::frontend_ready,
             subtitles::get_lesson_subtitle,
             subtitle_generation::subtitle_generation_status,

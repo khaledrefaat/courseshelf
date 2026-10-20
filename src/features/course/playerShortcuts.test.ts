@@ -181,11 +181,11 @@ describe("player shortcuts", () => {
 		other.controls.keydown(keyEvent("ArrowRight"), allowed);
 		expect(other.video.currentTime).toBe(25);
 	});
-	it("clamps volume, raises it by ten percent and unmutes when raised", () => {
+	it("clamps volume, raises it by five percentage points and unmutes when raised", () => {
 		const f = fixture();
 		f.video.muted = true;
 		f.controls.keydown(keyEvent("ArrowUp"), allowed);
-		expect(f.video.volume).toBe(0.8);
+		expect(f.video.volume).toBe(0.75);
 		expect(f.video.muted).toBe(false);
 		f.video.volume = 0.95;
 		f.controls.keydown(keyEvent("ArrowUp"), allowed);
@@ -196,6 +196,62 @@ describe("player shortcuts", () => {
 		f.controls.keydown(keyEvent("m"), allowed);
 		expect(f.video.muted).toBe(true);
 	});
+	it.each([
+		["ArrowUp", 0.27, 0.3, 0.35],
+		["ArrowDown", 0.27, 0.25, 0.2],
+		["ArrowUp", 0.32, 0.35, 0.4],
+		["ArrowDown", 0.32, 0.3, 0.25],
+		["ArrowUp", 0.99, 1, 1],
+		["ArrowDown", 0.01, 0, 0],
+		["ArrowUp", 0.1 + 0.2, 0.35, 0.4],
+		["ArrowDown", 0.1 + 0.2, 0.25, 0.2],
+	])(
+		"%s snaps volume from %s to successive 5%% steps",
+		(key, initial, first, second) => {
+			const f = fixture();
+			f.video.volume = initial;
+			const event = keyEvent(key);
+			f.controls.keydown(event, allowed);
+			expect(event.defaultPrevented).toBe(true);
+			expect(f.video.volume).toBe(first);
+			expect(f.options.indicate).toHaveBeenLastCalledWith(
+				`Volume ${Math.round(first * 100)}%`,
+			);
+			f.controls.keydown(keyEvent(key), allowed);
+			expect(f.video.volume).toBe(second);
+		},
+	);
+	it.each([-0.00001, 0, 0.00001])(
+		"repeated presses cover 0–100%% despite native volume readback drift of %s",
+		(drift) => {
+			const f = fixture();
+			let stored = 0;
+			Object.defineProperty(f.video, "volume", {
+				get: () => Math.max(0, Math.min(1, stored + drift)),
+				set: (value: number) => {
+					stored = value;
+				},
+			});
+			for (let expected = 5; expected <= 100; expected += 5) {
+				f.controls.keydown(keyEvent("ArrowUp"), allowed);
+				expect(stored).toBe(expected / 100);
+				expect(f.options.indicate).toHaveBeenLastCalledWith(
+					`Volume ${expected}%`,
+				);
+			}
+			f.controls.keydown(keyEvent("ArrowUp"), allowed);
+			expect(stored).toBe(1);
+			for (let expected = 95; expected >= 0; expected -= 5) {
+				f.controls.keydown(keyEvent("ArrowDown"), allowed);
+				expect(stored).toBe(expected / 100);
+				expect(f.options.indicate).toHaveBeenLastCalledWith(
+					`Volume ${expected}%`,
+				);
+			}
+			f.controls.keydown(keyEvent("ArrowDown"), allowed);
+			expect(stored).toBe(0);
+		},
+	);
 	it("f toggles, Escape exits, and repetition is ignored", () => {
 		const f = fixture();
 		f.controls.keydown(keyEvent("f"), allowed);

@@ -19,6 +19,7 @@ dist-ssr
 !/src-tauri/resources/subtitle-helpers/whisper/README.txt
 
 # Local configuration, credentials and SQLite data/backups
+.claude/
 .env
 .env.*
 !.env.example

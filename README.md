@@ -82,7 +82,9 @@ dependencies and may need internet access. Quit any running copy before updating
 3. Open the course and start watching. Progress, positions and notes are saved locally.
 4. Return to your library to continue where you left off.
 
-There are no accounts, uploads or required cloud services. Courseshelf does not
+Watching, progress, notes and subtitle transcription need no accounts or cloud
+service. The optional flashcard feature described below sends a transcript to
+Z.ai only after confirmation and uses your own API key/credits. Courseshelf does not
 download courses: you supply your own local videos. Removing a course from the
 library removes its Courseshelf data, not the video files on disk.
 
@@ -90,6 +92,51 @@ Back up your progress and notes before moving data or upgrading. See the
 [backup and restore guide](docs/backup-and-restore.md) for data locations and
 manual instructions. Database backups do not include videos, cover images,
 generated subtitle files, FFmpeg or the downloaded model.
+
+## Lesson flashcards (unreleased source feature)
+
+**Not included in the 0.3.1 installers linked above.** In a build from this source,
+open a lesson and use the **Flashcards** panel above notes:
+
+1. Have an existing matching VTT/SRT or generate English subtitles first.
+2. Click **Generate flashcards**, enter your own Z.ai API key for this app session,
+   and confirm the transcript upload and credit use. No video or notes are uploaded.
+3. Flip through concept-focused question/answer cards, their transcript excerpts
+   and separately labeled AI-added context. Saved cards work offline, with local editing/deletion.
+4. At lesson end, saved cards open automatically instead of the next-lesson countdown.
+   Use **Previous card** / **Next card** to review, and **Escape** to close. Continue
+   using the course page’s normal **Next** button when you choose.
+   Lessons without cards keep the five-second countdown. Generation never runs automatically.
+
+For a whole course, choose **Manage → Generate course flashcards…**. The preview
+shows eligible lessons, skipped saved sets, transcript/checkpoint issues and an upper
+bound on new API requests. Confirm transcript uploads/credit use to process missing
+sets sequentially. Existing cards and edits—including zero-card results—are never
+replaced. Generate course subtitles first if transcripts are missing.
+
+The global status bar continues across navigation and offers Cancel. Received
+compatible work can be reused under your confirmation; uncertain/malformed checkpoints
+need individual attention. There are no automatic retries. Restarting never resumes
+spending: preview again to skip completed lessons and reuse safe partial work.
+
+Long lessons are split into bounded sections before whole-lesson selection, rather
+than always producing seven cards. Fewer or zero cards is valid when little is taught.
+New generation favors clear concept explanations over demo trivia or repetitive
+"according to the instructor" wording. Labeled AI-added explanations and examples can
+fill gaps in the same concept, up to 1,200 characters, without claiming to recover
+unseen slides. Existing sets/edits are kept; regenerate a lesson explicitly to use
+the new guidance. Course batches still skip saved sets.
+These are AI-generated aids, not verified facts or a replacement for the course.
+They cannot see slides. Your key is held in native memory for this session only,
+not stored in the database or backups; re-enter it after restarting the app.
+There is no model download for flashcards. Internet and Z.ai credits are needed
+only for new generation requests; local subtitle generation remains offline.
+
+See [flashcard privacy, limits, resume and testing](docs/flashcards.md). Saved
+flashcards and cited excerpts are included in database backups; private partial
+checkpoints are not. Back up the existing database before first running this build
+(migrations 0006–0007). Migration 0007 preserves existing cards while expanding the
+AI-context limit. Published installer links and release versions are unchanged.
 
 ## Subtitles
 

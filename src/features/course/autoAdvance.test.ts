@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
 	bindAutoAdvanceEvents,
 	createAutoAdvance,
+	lessonEndReady,
 } from "@/features/course/autoAdvance";
 import {
 	flushPendingData,
@@ -35,6 +36,29 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+it("requires an actual metadata-ready end, without seeking/errors/hidden page/popups/management", () => {
+	const video = {
+		ended: true,
+		seeking: false,
+		error: null,
+		duration: 100,
+		readyState: 1,
+	};
+	const page = { blocked: false, hidden: false, popup: false };
+	expect(lessonEndReady(video, page)).toBe(true);
+	for (const patch of [
+		{ ended: false },
+		{ seeking: true },
+		{ error: "failed" },
+		{ duration: NaN },
+		{ duration: 0 },
+		{ readyState: 0 },
+	])
+		expect(lessonEndReady({ ...video, ...patch }, page)).toBe(false);
+	for (const key of ["blocked", "hidden", "popup"])
+		expect(lessonEndReady(video, { ...page, [key]: true })).toBe(false);
+});
+
 it("counts down five seconds, flushes, advances once; repeated ended is ignored", async () => {
 	const f = fixture();
 	await f.controller.ended();
@@ -61,6 +85,135 @@ it("does not start on the final lesson or when blocked", async () => {
 	await f.controller.ended();
 	expect(f.options.beforeStart).not.toHaveBeenCalled();
 	expect(f.options.changed).not.toHaveBeenCalled();
+});
+
+it("saved review owns the end instead of starting a timer, including the final lesson", async () => {
+	for (const final of [false, true]) {
+		const f = fixture();
+		f.options.canAdvance.mockReturnValue(!final);
+		const open = vi.fn(async (current: () => boolean) =>
+			expect(current()).toBe(true),
+		);
+		const controller = createAutoAdvance({
+			...f.options,
+			review: { canOpen: () => true, open },
+		});
+		await controller.ended();
+		await controller.ended();
+		await controller.advanceNow();
+		await vi.advanceTimersByTimeAsync(10000);
+		expect(open).toHaveBeenCalledOnce();
+		expect(f.options.beforeStart).not.toHaveBeenCalled();
+		expect(f.options.advance).not.toHaveBeenCalled();
+		expect(f.options.changed).not.toHaveBeenCalled();
+		// Hiding review does not restart a countdown; replay permits another end.
+		controller.cancel();
+		await controller.ended();
+		expect(open).toHaveBeenCalledOnce();
+		controller.reset();
+		await controller.ended();
+		expect(open).toHaveBeenCalledTimes(2);
+		controller.dispose();
+	}
+});
+it.each(["replay", "hide", "unmount", "blocked"])(
+	"invalidates pending fullscreen-exit review on %s",
+	async (reason) => {
+		const f = fixture(),
+			pending = deferred(),
+			opened = vi.fn();
+		let eligible = true;
+		const controller = createAutoAdvance({
+			...f.options,
+			review: {
+				canOpen: () => eligible,
+				open: async (current) => {
+					await pending.promise;
+					if (current()) opened();
+				},
+			},
+		});
+		const ending = controller.ended();
+		if (reason === "replay") controller.reset();
+		else if (reason === "unmount") controller.dispose();
+		else if (reason === "hide") controller.cancel();
+		else eligible = false;
+		pending.resolve();
+		await ending;
+		expect(opened).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(6000);
+		expect(f.options.advance).not.toHaveBeenCalled();
+		controller.dispose();
+	},
+);
+it("does not auto-open cards which arrive after ended or after a blocked end", async () => {
+	for (const blocked of [false, true]) {
+		const f = fixture(),
+			open = vi.fn(async () => {});
+		let available = false;
+		f.options.canAdvance.mockReturnValue(!blocked);
+		const controller = createAutoAdvance({
+			...f.options,
+			review: { canOpen: () => available, open },
+		});
+		await controller.ended();
+		available = true;
+		await controller.ended();
+		expect(open).not.toHaveBeenCalled();
+		controller.dispose();
+	}
+});
+it("clicking advances immediately after pending saves settle, exactly once", async () => {
+	const f = fixture();
+	const pending = deferred();
+	f.options.flush.mockReturnValue(pending.promise);
+	await f.controller.ended();
+	await vi.advanceTimersByTimeAsync(1000);
+	const clicked = f.controller.advanceNow();
+	await f.controller.advanceNow();
+	expect(f.options.flush).toHaveBeenCalledOnce();
+	expect(f.options.changed).toHaveBeenLastCalledWith({
+		seconds: 0,
+		flushing: true,
+	});
+	expect(f.options.advance).not.toHaveBeenCalled();
+	pending.resolve();
+	await clicked;
+	expect(f.options.advance).toHaveBeenCalledOnce();
+	expect(f.options.flush).toHaveBeenCalledBefore(f.options.advance);
+	await vi.advanceTimersByTimeAsync(6000);
+	expect(f.options.advance).toHaveBeenCalledOnce();
+});
+it("Cancel prevents immediate advance, including while a click is flushing saves", async () => {
+	for (const flushing of [false, true]) {
+		const f = fixture();
+		const pending = deferred();
+		f.options.flush.mockReturnValue(pending.promise);
+		await f.controller.ended();
+		const clicked = flushing ? f.controller.advanceNow() : Promise.resolve();
+		f.controller.cancel();
+		await f.controller.advanceNow();
+		pending.resolve();
+		await clicked;
+		await vi.advanceTimersByTimeAsync(6000);
+		expect(f.options.advance).not.toHaveBeenCalled();
+	}
+});
+it("immediate advance respects target availability and failed saves", async () => {
+	const blocked = fixture();
+	await blocked.controller.advanceNow();
+	expect(blocked.options.flush).not.toHaveBeenCalled();
+	await blocked.controller.ended();
+	blocked.options.canAdvance.mockReturnValue(false);
+	await blocked.controller.advanceNow();
+	expect(blocked.options.flush).not.toHaveBeenCalled();
+	expect(blocked.options.advance).not.toHaveBeenCalled();
+	const failed = fixture();
+	await failed.controller.ended();
+	failed.options.flush.mockRejectedValue(new Error("Save failed"));
+	await failed.controller.advanceNow();
+	expect(failed.options.advance).not.toHaveBeenCalled();
+	expect(failed.options.failed).toHaveBeenCalledOnce();
 });
 it("cancel stays cancelled until replay/seek resets the visit", async () => {
 	const f = fixture();

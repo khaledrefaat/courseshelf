@@ -3,7 +3,7 @@ import process from "node:process";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import { cspCompatibility } from "./build/csp";
+import { cspCompatibility } from "./build/csp.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -12,7 +12,7 @@ export default defineConfig(() => ({
 	plugins: [react(), tailwindcss(), cspCompatibility(react.preambleCode)],
 	resolve: {
 		alias: {
-			"@": path.resolve(__dirname, "./src"),
+			"@": path.resolve(import.meta.dirname, "./src"),
 		},
 	},
 

@@ -9,6 +9,7 @@ import {
 } from "@/features/course/subtitleGeneration";
 import "@/index.css";
 import { installCloseFlush } from "@/features/course/closeProgress";
+import { cancelFlashcards } from "@/features/flashcards/service";
 import { initializePlayback, playbackErrorMessage } from "@/lib/playback";
 import { followSystemTheme } from "@/lib/systemTheme";
 
@@ -18,9 +19,9 @@ const stopTheme = followSystemTheme(
 );
 if (import.meta.hot) import.meta.hot.dispose(stopTheme);
 
-const closeListener = installCloseFlush(() => cancelGeneration()).catch(
-	() => undefined,
-);
+const closeListener = installCloseFlush(() =>
+	Promise.all([cancelGeneration(), cancelFlashcards()]),
+).catch(() => undefined);
 const stopGeneration = initializeSubtitleGeneration();
 if (import.meta.hot) import.meta.hot.dispose(stopGeneration);
 if (import.meta.hot)

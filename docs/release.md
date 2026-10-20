@@ -8,6 +8,16 @@ The source version is **0.3.1**. Building produces
 `Courseshelf_0.3.1_amd64.deb`; the Windows workflow produces
 `Courseshelf_0.3.1_x64-setup.exe`. These are not published automatically.
 
+The current source additionally contains **unreleased lesson/course flashcards**; the
+published 0.3.1 installers do not. Back up before testing: migration 0006 adds
+saved sets/cards and cited transcript excerpts. Migration 0007 expands AI-added
+context to 1,200 characters while preserving existing cards/edits and publication
+triggers. Applied migrations are not edited. Optional cloud generation uses
+the user's session-only Z.ai key after consent; offline video/subtitle behavior
+is unchanged. No key, SDK or extra model is bundled. See [flashcards](flashcards.md)
+for privacy, limits, cancellation and manual checks. Do not describe an existing
+published installer as containing this feature until a new release is built/tested.
+
 This release adds offline English subtitle generation for individual lessons and
 whole courses, optional no-overwrite `.en.vtt` export, CPU-optimized helpers with
 a portable fallback, and double-click player fullscreen. Back up before upgrading:
@@ -157,6 +167,14 @@ Custom invokes (not plugin ACL permission names):
 
 | Command | Frontend call site | Backend restriction |
 | --- | --- | --- |
+| `flashcards_key` | `flashcards/service.ts`, password dialog | Main window; validates/holds a key in Rust session memory, reports only readiness, Forget clears/cancels. Never serialized to files/DB. |
+| `flashcards_prepare` | Same service/panel | Main window; registered/granted bounded sidecar/generated reads; source fingerprints and scoped checkpoint reads. No HTTP. |
+| `flashcards_begin` | Same service after confirmation | Main window; source revalidation, one global job, bounded contiguous sections, explicit fresh/resume; no arbitrary path or endpoint. |
+| `flashcards_request` | Same service/pipeline | Main window; current job, ordered single-attempt stages, bounded messages/body, fixed HTTPS provider/model, no redirects/retries; checkpoints received content/usage only. |
+| `flashcards_cancel` | Same service, close and management | Main window; cancels matching in-memory work; no arbitrary process operations. |
+| `flashcards_validate_job` | Same service before SQL publication | Main window; current job, completed received stages and fresh matching source. |
+| `flashcards_finish` | Same service after save/failure | Main window; releases current settled job, cleans only its known checkpoint files after saving. |
+| `flashcards_discard` | Same service, removal cleanup | Main window; known course/lesson-owned app-data checkpoint names only, no links/reparse points, no recursive unknown-file removal. |
 | `subtitle_generation_status` | `course/subtitleGeneration.ts` | Reports one in-memory job and fixed model/helper availability; no file content. |
 | `start_subtitle_generation` | Same service | One job; registered/granted lesson; English only; explicit consent for fixed HTTPS FFmpeg/model downloads, size/SHA-256 verification and bounded extraction. No frontend HTTP or process permission. |
 | `cancel_subtitle_generation` | Same service, course management | Cancels matching job/course and kills its helper; no arbitrary PID/process command. |

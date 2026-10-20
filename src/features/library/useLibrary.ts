@@ -33,7 +33,7 @@ export function useLibrary() {
 			.then(([data]) => {
 				if (!active) return;
 				const statuses = new Map<number, Readonly<RegistrationStatus>>();
-				// Includes courses added after startup through the dev spike.
+				// Includes courses added after startup through the Add course dialog.
 				for (const course of data) {
 					const status = getRegistrationStatus(course.id);
 					if (status) statuses.set(course.id, status);

@@ -1,5 +1,28 @@
 export type AutoAdvanceState = { seconds: number; flushing: boolean } | null;
 
+export function lessonEndReady(
+	video: {
+		ended: boolean;
+		seeking: boolean;
+		error: unknown;
+		duration: number;
+		readyState: number;
+	},
+	page: { blocked: boolean; hidden: boolean; popup: boolean },
+) {
+	return (
+		!page.blocked &&
+		!page.hidden &&
+		!page.popup &&
+		video.ended &&
+		!video.seeking &&
+		!video.error &&
+		video.readyState >= 1 &&
+		Number.isFinite(video.duration) &&
+		video.duration > 0
+	);
+}
+
 export function createAutoAdvance(options: {
 	canAdvance(): boolean;
 	beforeStart(): Promise<void>;
@@ -7,6 +30,10 @@ export function createAutoAdvance(options: {
 	advance(): void;
 	changed(state: AutoAdvanceState): void;
 	failed(): void;
+	review?: {
+		canOpen(): boolean;
+		open(current: () => boolean): Promise<void>;
+	};
 	now?: () => number;
 }) {
 	const now = options.now ?? (() => performance.now());
@@ -15,13 +42,17 @@ export function createAutoAdvance(options: {
 		| "preparing"
 		| "counting"
 		| "flushing"
+		| "reviewing"
 		| "cancelled"
 		| "advanced" = "idle";
 	let generation = 0;
 	let disposed = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const active = () =>
-		phase === "preparing" || phase === "counting" || phase === "flushing";
+		phase === "preparing" ||
+		phase === "counting" ||
+		phase === "flushing" ||
+		phase === "reviewing";
 	function cancel() {
 		if (!active()) return false;
 		generation++;
@@ -62,8 +93,38 @@ export function createAutoAdvance(options: {
 			fail(ticket);
 		}
 	}
+	async function advanceNow() {
+		if (disposed || phase !== "counting") return;
+		clearTimeout(timer);
+		if (!options.canAdvance()) {
+			cancel();
+			return;
+		}
+		await finish(generation);
+	}
 	async function ended() {
-		if (disposed || phase !== "idle" || !options.canAdvance()) return;
+		if (disposed || phase !== "idle") return;
+		// Choose once at the real ended event, never when availability later changes.
+		// Review owns this end even after dismissal; no timer runs underneath it.
+		if (options.review?.canOpen()) {
+			phase = "reviewing";
+			const ticket = ++generation;
+			try {
+				await options.review.open(
+					() =>
+						valid(ticket) &&
+						phase === "reviewing" &&
+						!!options.review?.canOpen(),
+				);
+			} catch {
+				fail(ticket);
+			}
+			return;
+		}
+		if (!options.canAdvance()) {
+			phase = "cancelled";
+			return;
+		}
 		phase = "preparing";
 		const ticket = ++generation;
 		try {
@@ -76,7 +137,7 @@ export function createAutoAdvance(options: {
 			phase = "counting";
 			const deadline = now() + 5000;
 			const tick = () => {
-				if (!valid(ticket)) return;
+				if (!valid(ticket) || phase !== "counting") return;
 				if (!options.canAdvance()) {
 					cancel();
 					return;
@@ -99,6 +160,7 @@ export function createAutoAdvance(options: {
 	}
 	return {
 		ended,
+		advanceNow,
 		cancel,
 		reset,
 		dispose() {

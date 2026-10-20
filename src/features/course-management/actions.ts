@@ -16,6 +16,10 @@ import {
 	refreshManagement,
 } from "@/features/course-management/state";
 import {
+	cleanupCourseFlashcards,
+	withFlashcardsPaused,
+} from "@/features/flashcards/service";
+import {
 	type PickedCover,
 	writeCourseCover,
 } from "@/features/library/add-course/covers";
@@ -63,65 +67,69 @@ export async function previewRelocation(courseId: number, path: string) {
 }
 
 export function rescan(course: courses.Course) {
-	return manage(async () => {
-		await cancelGeneration(course.id);
-		pauseCourse(course.id);
-		await flushPendingData();
-		const result = await syncCourse(course.id);
-		await registerCourseRoot(course.id, course.root_path);
-		refreshManagement(
-			result.ok ? syncMessage(result) : result.message,
-			result.ok ? undefined : course.id,
-			course.id,
-		);
-		if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-		return result;
-	});
+	return manage(() =>
+		withFlashcardsPaused(course.id, async () => {
+			await cancelGeneration(course.id);
+			pauseCourse(course.id);
+			await flushPendingData();
+			const result = await syncCourse(course.id);
+			await registerCourseRoot(course.id, course.root_path);
+			refreshManagement(
+				result.ok ? syncMessage(result) : result.message,
+				result.ok ? undefined : course.id,
+				course.id,
+			);
+			if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
+			return result;
+		}),
+	);
 }
 
 export function relocate(course: courses.Course, path: string) {
-	return manage(async () => {
-		await cancelGeneration(course.id);
-		const current = await courses.getById(course.id);
-		if (!current || current.root_path !== course.root_path)
-			throw new Error("The course folder changed. Reopen Locate folder.");
-		pauseCourse(course.id);
-		await flushPendingData();
-		const preview = await previewRelocation(course.id, path);
-		if (preview.error) throw new Error(preview.error);
-		await courses.updateRoot(course.id, preview.scan.root_path);
-		let registration: Awaited<ReturnType<typeof registerCourseRoot>>;
-		try {
-			registration = await registerCourseRoot(
-				course.id,
-				preview.scan.root_path,
-			);
-			if (registration.status !== "registered")
-				throw new Error(registration.message);
-		} catch (cause) {
-			let message = `Could not register the new folder: ${errorMessage(cause)}`;
+	return manage(() =>
+		withFlashcardsPaused(course.id, async () => {
+			await cancelGeneration(course.id);
+			const current = await courses.getById(course.id);
+			if (!current || current.root_path !== course.root_path)
+				throw new Error("The course folder changed. Reopen Locate folder.");
+			pauseCourse(course.id);
+			await flushPendingData();
+			const preview = await previewRelocation(course.id, path);
+			if (preview.error) throw new Error(preview.error);
+			await courses.updateRoot(course.id, preview.scan.root_path);
+			let registration: Awaited<ReturnType<typeof registerCourseRoot>>;
 			try {
-				await courses.updateRoot(course.id, course.root_path);
-			} catch (rollback) {
-				message += ` Root rollback also failed: ${errorMessage(rollback)}`;
+				registration = await registerCourseRoot(
+					course.id,
+					preview.scan.root_path,
+				);
+				if (registration.status !== "registered")
+					throw new Error(registration.message);
+			} catch (cause) {
+				let message = `Could not register the new folder: ${errorMessage(cause)}`;
+				try {
+					await courses.updateRoot(course.id, course.root_path);
+				} catch (rollback) {
+					message += ` Root rollback also failed: ${errorMessage(rollback)}`;
+				}
+				try {
+					const old = await registerCourseRoot(course.id, course.root_path);
+					if (old.status !== "registered")
+						message += ` Previous folder is ${old.status}: ${old.message}`;
+				} catch (rollback) {
+					message += ` Registration rollback failed: ${errorMessage(rollback)}`;
+				}
+				refreshManagement(message, undefined, course.id);
+				throw new Error(message);
 			}
-			try {
-				const old = await registerCourseRoot(course.id, course.root_path);
-				if (old.status !== "registered")
-					message += ` Previous folder is ${old.status}: ${old.message}`;
-			} catch (rollback) {
-				message += ` Registration rollback failed: ${errorMessage(rollback)}`;
-			}
+			const result = await syncCourse(course.id);
+			const message = result.ok
+				? `Folder updated. ${syncMessage(result)}`
+				: `Folder updated, but sync failed: ${result.message}. Use Rescan folder to retry.`;
 			refreshManagement(message, undefined, course.id);
-			throw new Error(message);
-		}
-		const result = await syncCourse(course.id);
-		const message = result.ok
-			? `Folder updated. ${syncMessage(result)}`
-			: `Folder updated, but sync failed: ${result.message}. Use Rescan folder to retry.`;
-		refreshManagement(message, undefined, course.id);
-		return message;
-	});
+			return message;
+		}),
+	);
 }
 
 export function editCourse(
@@ -162,44 +170,52 @@ export function archiveCourse(courseId: number, archived: boolean) {
 }
 
 export function removeCourse(courseId: number) {
-	return manage(async () => {
-		const course = await courses.getById(courseId);
-		if (!course) throw new Error("Course no longer exists.");
-		const ids = (await listAllByCourse(courseId)).map((lesson) => lesson.id);
-		const subtitlePreparation = prepareSubtitleRemoval(courseId);
-		// Block new writes synchronously before pausing (pause itself normally saves).
-		const draining = discardLessonWrites(ids);
-		const drafts = notesController.discardCourse(courseId);
-		pauseCourse(courseId);
-		let generated: Awaited<ReturnType<typeof prepareSubtitleRemoval>>;
-		try {
-			[generated] = await Promise.all([subtitlePreparation, draining, drafts]);
-			await courses.delete(courseId);
-		} catch (cause) {
-			allowLessonWrites(ids);
+	return manage(() =>
+		withFlashcardsPaused(courseId, async () => {
+			const course = await courses.getById(courseId);
+			if (!course) throw new Error("Course no longer exists.");
+			const ids = (await listAllByCourse(courseId)).map((lesson) => lesson.id);
+			const subtitlePreparation = prepareSubtitleRemoval(courseId);
+			// Block new writes synchronously before pausing (pause itself normally saves).
+			const draining = discardLessonWrites(ids);
+			const drafts = notesController.discardCourse(courseId);
+			pauseCourse(courseId);
+			let generated: Awaited<ReturnType<typeof prepareSubtitleRemoval>>;
+			try {
+				[generated] = await Promise.all([
+					subtitlePreparation,
+					draining,
+					drafts,
+				]);
+				await courses.delete(courseId);
+			} catch (cause) {
+				allowLessonWrites(ids);
+				allowSubtitleGeneration(courseId);
+				throw cause;
+			}
+			const warnings: string[] = [];
+			const flashcardWarning = await cleanupCourseFlashcards(courseId);
+			if (flashcardWarning) warnings.push(flashcardWarning);
+			const subtitleWarning = await cleanupGeneratedSubtitles(generated);
+			if (subtitleWarning) warnings.push(subtitleWarning);
 			allowSubtitleGeneration(courseId);
-			throw cause;
-		}
-		const warnings: string[] = [];
-		const subtitleWarning = await cleanupGeneratedSubtitles(generated);
-		if (subtitleWarning) warnings.push(subtitleWarning);
-		allowSubtitleGeneration(courseId);
-		const cleanup = await cleanupCover(
-			courseId,
-			course.cover_path,
-			"Course removed",
-		);
-		if (cleanup) warnings.push(cleanup);
-		try {
-			await unregisterCourseRoot(courseId);
-		} catch {
-			warnings.push(
-				"Playback unregistration failed; restart Courseshelf to revoke the old root.",
+			const cleanup = await cleanupCover(
+				courseId,
+				course.cover_path,
+				"Course removed",
 			);
-		}
-		refreshManagement(
-			warnings.join(" ") || "Course removed. Video files were not touched.",
-		);
-		return warnings.join(" ");
-	});
+			if (cleanup) warnings.push(cleanup);
+			try {
+				await unregisterCourseRoot(courseId);
+			} catch {
+				warnings.push(
+					"Playback unregistration failed; restart Courseshelf to revoke the old root.",
+				);
+			}
+			refreshManagement(
+				warnings.join(" ") || "Course removed. Video files were not touched.",
+			);
+			return warnings.join(" ");
+		}),
+	);
 }

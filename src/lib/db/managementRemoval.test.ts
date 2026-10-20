@@ -11,6 +11,9 @@ import {
 } from "@/lib/db/progressWrites";
 
 let sqlite: DatabaseSync;
+vi.mock("@tauri-apps/api/core", () => ({
+	invoke: vi.fn(async () => undefined),
+}));
 vi.mock("@/features/course/subtitleGeneration", () => ({
 	allowSubtitleGeneration: vi.fn(),
 	cleanupGeneratedSubtitles: vi.fn(async () => null),

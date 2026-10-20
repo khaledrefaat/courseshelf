@@ -6,7 +6,7 @@ Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure
 
 ## Commands
 - Dev: `pnpm tauri dev`
-- Typecheck: `pnpm typecheck`
+- Typecheck: `pnpm typecheck` (frontend, Vite config and flashcard CLI)
 - Lint: `pnpm lint` (Biome, repo-wide). Safe fixes: `pnpm lint:fix`
 - Format: `pnpm format` (Biome, repo-wide formatting only)
 - Tests: `pnpm test`
@@ -200,7 +200,10 @@ and the folder-tree sidebar.
 - Position saves are throttled (5s, 1s minimum change) and serialized per lesson. Never save a
   position before the resume seek is confirmed. Saves never touch `completed`.
 - Auto-complete at 90% while playing, or on ended. Undo suppresses re-completion for that visit.
-- On ended only, auto-advance to the next available lesson after a five-second countdown.
+- On genuine played ended only, ready saved flashcards open review instead of a countdown.
+  Escape closes review and stays on the ended lesson; review never navigates lessons.
+  No auto-generation, late auto-open after generation/loading, or opening at 90%/manual completion.
+  Without ready cards, auto-advance to the next available lesson after a five-second countdown.
   Cancel (S) follows the usual shortcut guards. Flush pending writes before navigating; cancel
   on replay/seeking, page exit, hidden document or course management. No advance after the final lesson.
 - Window close flushes pending writes with a 2s timeout and always closes anyway.
@@ -226,3 +229,86 @@ and the folder-tree sidebar.
   position saving and auto-complete keep working. New shortcuts follow the same guards.
 - Fullscreen tries the wrapper element first, then the Tauri window fallback, and always restores
   the original window state (maximized at startup).
+
+## Lesson flashcards (Tauri, unreleased)
+- Single lessons and an explicit Manage → Generate course flashcards queue. Reuse the pure shared rules in
+  src/lib/flashcards (the CLI trial re-exports core.ts). Native video, subtitle
+  transcription, progress and notes contracts remain unchanged.
+- Generation is explicit and sends transcript text to the fixed Z.ai HTTPS endpoint
+  using glm-5.3-flash. Do not auto-generate on ended, retry paid requests, change the
+  model, or claim provider token counts equal package billing. No frontend HTTP
+  grant, CSP change, SDK or model download. Rust disables redirects and retries,
+  limits request/response sizes and time, and strips provider envelopes/reasoning.
+- API keys go through the password dialog to Rust session memory; never save them
+  in SQLite/localStorage/checkpoints/logs or ship a shared key. Forget/close cancels
+  matching work. Do not make live paid requests during tests without permission.
+- Source reads reuse registered/persisted-grant, bounded VTT/SRT/generated-cache
+  checks. Sidecars take priority; invalid sidecars cannot silently fall back. Source
+  SHA-256 binds checkpoints; a cheap video size/mtime fingerprint detects ordinary
+  changes (not video integrity). Generated-cache reads keep their full video SHA check.
+- Migration 0006 adds flashcard_sets/flashcards; 0007 expands only extra_context
+  to 1,200 characters by rebuilding the child table transactionally. Preserve IDs,
+  edits, evidence, empty sets, timestamps, atomic publication triggers and cascades.
+  Never edit an applied migration. All SQL stays in src/lib/db.
+  Publish via one conditional SQL statement and staging-column triggers, not pooled
+  BEGIN/COMMIT calls. Failure preserves the previous set. Edits bind generation IDs.
+  Writes use the shared per-lesson serialization/close drain; course removal blocks
+  and drains work before cascade. No late response may recreate removed data.
+- One module-level job survives lesson navigation, but cancels for close and course
+  rescan/relocation/removal. Keep the existing two-second close deadline. Successful
+  cards/evidence live in SQLite and backups. Private bounded flashcard-jobs/ app-data
+  checkpoints exclude keys and video, and use only known lesson-owned files/no links.
+  Resume revalidates received responses before new API calls. Uncertain in-flight
+  requests require explicit discard/start-over; never silently resend them.
+- Course batches have read-only cancellable preflight, explicit transcript-upload/credit
+  consent and a confirmed ceiling on NEW requests. Hold only one source at a time;
+  keep metadata, not transcripts/replies/native preparation IDs, in the course plan.
+  Reprepare immediately before each lesson (native preparation cache holds eight IDs),
+  compare source/identity/checkpoint with the preview and never expand its upload scope.
+  Keep one frontend reservation across the entire batch, including gaps between lessons.
+  Saved sets (including zero-card/deleted-card sets and edits) are skipped; publication
+  uses atomic ON CONFLICT DO NOTHING, never the single-lesson replacement path.
+  No automatic transcription, checkpoint discard, retry or persistent queue/restart spending.
+  Reuse only compatible fully received stages validated before any paid call. Native
+  begin/request rejection or finalization failure stops the batch conservatively;
+  lesson-local source/response-validation errors are reported without retry and can continue.
+  Track new/reused reported tokens separately, including received invalid responses;
+  unknown/interrupted usage is never presented as zero. Navigation never cancels a batch;
+  Forget/replacing an active key, management and close synchronously invalidate queued
+  work and drain it with the current job. Close still has the same two-second deadline.
+- Preserve count/text/cue limits, references copied locally, context qualifiers,
+  whole-lesson deduplication/coverage warnings and a varied first-five review.
+  Schema/reference checks are not fact-checking. Added context is labeled separately;
+  never invent unseen slides or imply web verification. Manual edits retain original
+  evidence and are visibly marked. Regeneration warns that it replaces manual edits.
+- Prompt 8 teaches self-contained named concepts with plain-English causal explanations,
+  not instructor-specific code/workflow trivia or vague references. Avoid attribution
+  boilerplate ("according to this course/instructor") while keeping actual tool/version/
+  scenario conditions and trade-offs. Actively use labeled AI context for missing foundations,
+  mechanisms and simple in-scope examples (target 2–4 short sentences, hard cap 1,200).
+  No new syllabus, invented slide contents or unsupported additions to the lesson answer.
+  Validator 7 expands only that text bound; cue/reference checks remain strict. Selection
+  sees a labeled, capped 480-character context preview within the same 65k message bound;
+  it selects existing IDs and never rewrites cards. No extra API stage or token-cap increase.
+  Extraction sends cueId/text and allowed global
+  IDs only; times stay local. Reject bad references, never remap seconds or silently retry.
+  Existing cards/edits stay unchanged; native older-prompt checkpoints need explicit discard,
+  not silent upgrade/replay. The CLI retains validated older-response provenance on resume.
+- Review is an existing-component dialog, not a new player. Render ONE normal-orientation
+  question/answer face; fold using positive 2D scales and swap text at the midpoint.
+  Do not restore stacked rotateY/backfaces: they painted mirrored text in the user's native app.
+  Chromium-only preview checks do not establish real WebKitGTK rendering acceptance.
+  Cancel flip timers on card/page cleanup; keep keyboard activation and reduced motion.
+  The popup frame is transparent; review tokens provide white surfaces, dark text and plum accents in both
+  themes. Regular Previous card / Next card floating buttons sit below the card,
+  with Details between them (below on narrow screens). No side arrows, Hide/Done,
+  Next lesson or visible flip hint; Escape still closes the review. Disable navigation
+  at the first/last card and during writes. The front contains only the question; the back shows the answer
+  and optional labeled AI-added context. Lesson evidence and editing stay in Details.
+  Long content stays bounded.
+  Real ended chooses review/countdown once, with cancellation guards through fullscreen exit.
+  Closing review never restarts a timer; replay can reset the end. Clicking manual Review cancels
+  the countdown synchronously, awaits existing fullscreen exit, then opens only for
+  the same lesson. Do not play/pause/seek/change completion. Keep Next and Cancel (S)
+  for lessons without cards; review navigates cards only, not lessons.
+  See docs/flashcards.md for limits, failure handling and acceptance checks.

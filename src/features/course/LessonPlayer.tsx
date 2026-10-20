@@ -27,6 +27,9 @@ export function LessonPlayer({
 	onAdvance,
 	advanceBlocked,
 	bindAutoAdvance,
+	reviewCount = 0,
+	onReview,
+	onEndedReview,
 }: {
 	courseId: number;
 	lesson: OutlineLesson;
@@ -42,7 +45,11 @@ export function LessonPlayer({
 	onAdvance: () => void;
 	advanceBlocked: boolean;
 	bindAutoAdvance: (cancel: () => boolean) => () => void;
+	reviewCount?: number;
+	onReview?: () => void;
+	onEndedReview: (current: () => boolean) => Promise<void>;
 }) {
+	const [ended, setEnded] = useState(false);
 	const [source, setSource] = useState<string | null>(null);
 	const [savedPosition, setSavedPosition] = useState(0);
 	const [resumed, setResumed] = useState<number | null>(null);
@@ -61,6 +68,7 @@ export function LessonPlayer({
 	const autoplayOnce = useRef(autoplay);
 	const recordPlay = useRef(firstPlay(lesson.id));
 	const mounted = useRef(true);
+	const played = useRef(false);
 	const autoAdvance = useAutoAdvance({
 		video: videoRef,
 		source,
@@ -69,6 +77,9 @@ export function LessonPlayer({
 		advance: onAdvance,
 		exitFullscreen: onBeforePause,
 		bindCancel: bindAutoAdvance,
+		canReview: () =>
+			reviewCount > 0 && played.current && !!tracking.current?.canSeek(),
+		openReview: onEndedReview,
 	});
 	useEffect(() => {
 		let active = true;
@@ -154,6 +165,8 @@ export function LessonPlayer({
 									: "lesson-video block aspect-video w-full rounded-lg bg-player"
 							}
 							onPlay={() => {
+								played.current = true;
+								setEnded(false);
 								void recordPlay.current().catch(() => {
 									if (mounted.current)
 										setWatchError(
@@ -162,10 +175,13 @@ export function LessonPlayer({
 								});
 							}}
 							onError={(event) => {
+								setEnded(false);
 								setError(
 									`Video failed to load (error code: ${event.currentTarget.error?.code ?? "unknown"}).`,
 								);
 							}}
+							onEnded={() => setEnded(true)}
+							onSeeking={() => setEnded(false)}
 						/>
 						{subtitles.platform === "windows" && (
 							<WindowsSubtitles
@@ -190,8 +206,19 @@ export function LessonPlayer({
 							<NextLessonCountdown
 								state={autoAdvance.state}
 								title={nextLesson.title}
+								onAdvance={autoAdvance.advanceNow}
 								onCancel={autoAdvance.cancel}
+								onReview={reviewCount > 0 ? onReview : undefined}
 							/>
+						)}
+						{ended && !nextLesson && reviewCount > 0 && onReview && (
+							<Button
+								variant="outline"
+								className="absolute left-3 top-3 z-20 bg-card"
+								onClick={onReview}
+							>
+								Review cards ({reviewCount})
+							</Button>
 						)}
 					</div>
 					{!subtitles.loading && !expanded && (

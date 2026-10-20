@@ -116,12 +116,15 @@ export function playerShortcuts(options: {
 				options.indicate(delta > 0 ? "+10s" : "−10s");
 			} else if (key === "arrowup" || key === "arrowdown") {
 				consume(event);
-				const delta = key === "arrowup" ? 0.1 : -0.1;
-				video.volume = Math.max(
-					0,
-					Math.min(1, Math.round((video.volume + delta) * 1000) / 1000),
-				);
-				if (delta > 0) video.muted = false;
+				const raising = key === "arrowup";
+				// Use the displayed whole percentage: native volume readback can drift
+				// slightly around a step boundary after setting the media volume.
+				const percent = Math.round(video.volume * 100);
+				const next = raising
+					? (Math.floor(percent / 5) + 1) * 5
+					: (Math.ceil(percent / 5) - 1) * 5;
+				video.volume = Math.max(0, Math.min(100, next)) / 100;
+				if (raising) video.muted = false;
 				options.indicate(`Volume ${Math.round(video.volume * 100)}%`);
 			} else if (key === "m") {
 				consume(event);

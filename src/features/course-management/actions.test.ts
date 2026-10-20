@@ -22,6 +22,10 @@ import { registerCourseRoot, unregisterCourseRoot } from "@/lib/playback";
 import { scanCourse } from "@/lib/scanner/scanCourse";
 import { buildCourseStructure } from "@/lib/scanner/structure";
 
+vi.mock("@tauri-apps/api/core", () => ({
+	invoke: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/db/courses", () => ({
 	getById: vi.fn(),
 	list: vi.fn(),

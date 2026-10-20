@@ -7,10 +7,14 @@ export function NextLessonCountdown({
 	state,
 	title,
 	onCancel,
+	onAdvance,
+	onReview,
 }: {
 	state: NonNullable<AutoAdvanceState>;
 	title: string;
 	onCancel(): void;
+	onAdvance(): void;
+	onReview?: () => void;
 }) {
 	return (
 		<div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-end p-3">
@@ -24,58 +28,80 @@ export function NextLessonCountdown({
 						? "Starting next lesson"
 						: `Next lesson in ${state.seconds} seconds`}
 				</span>
-				<div aria-hidden="true" className="relative size-10 shrink-0">
-					<svg
-						viewBox="0 0 100 100"
-						className="size-full -rotate-90"
-						aria-hidden="true"
-					>
-						<circle
-							cx="50"
-							cy="50"
-							r="44"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="8"
-							className="text-countdown-foreground/25"
-						/>
-						<circle
-							cx="50"
-							cy="50"
-							r="44"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="8"
-							strokeLinecap="round"
-							pathLength="100"
-							strokeDasharray="100"
-							strokeDashoffset={state.flushing ? 0 : state.seconds * 20}
-							className={`next-lesson-countdown-ring text-countdown-brand ${state.flushing ? "next-lesson-countdown-ready" : ""}`}
-						/>
-					</svg>
-					{state.flushing ? (
-						<LoaderCircle className="absolute inset-0 m-auto size-4 animate-spin text-countdown-brand" />
-					) : (
-						<span
-							key={state.seconds}
-							className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums text-countdown-brand motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-90 motion-safe:duration-200"
+				<button
+					type="button"
+					onClick={onAdvance}
+					disabled={state.flushing}
+					aria-label={`Play next lesson now: ${title}`}
+					className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-full text-left outline-none focus-visible:ring-2 focus-visible:ring-countdown-brand disabled:cursor-wait"
+				>
+					<div aria-hidden="true" className="relative size-10 shrink-0">
+						<svg
+							viewBox="0 0 100 100"
+							className="size-full -rotate-90"
+							aria-hidden="true"
 						>
-							{state.seconds}
-						</span>
-					)}
-				</div>
-				<div className="min-w-0">
-					<p className="text-xs font-semibold tracking-widest text-countdown-brand uppercase">
-						{state.flushing ? "Starting…" : "Up next"}
-					</p>
-					<p dir="auto" title={title} className="truncate text-sm font-medium">
-						{title}
-					</p>
-				</div>
+							<circle
+								cx="50"
+								cy="50"
+								r="44"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="8"
+								className="text-countdown-foreground/25"
+							/>
+							<circle
+								cx="50"
+								cy="50"
+								r="44"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="8"
+								strokeLinecap="round"
+								pathLength="100"
+								strokeDasharray="100"
+								strokeDashoffset={state.flushing ? 0 : state.seconds * 20}
+								className={`next-lesson-countdown-ring text-countdown-brand ${state.flushing ? "next-lesson-countdown-ready" : ""}`}
+							/>
+						</svg>
+						{state.flushing ? (
+							<LoaderCircle className="absolute inset-0 m-auto size-4 animate-spin text-countdown-brand" />
+						) : (
+							<span
+								key={state.seconds}
+								className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums text-countdown-brand motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-90 motion-safe:duration-200"
+							>
+								{state.seconds}
+							</span>
+						)}
+					</div>
+					<div className="min-w-0">
+						<p className="text-xs font-semibold tracking-widest text-countdown-brand uppercase">
+							{state.flushing ? "Starting…" : "Up next"}
+						</p>
+						<p
+							dir="auto"
+							title={title}
+							className="truncate text-sm font-medium"
+						>
+							{title}
+						</p>
+					</div>
+				</button>
 				<div
 					aria-hidden="true"
 					className="h-8 w-px shrink-0 bg-countdown-foreground/20"
 				/>
+				{onReview && (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={onReview}
+						className="shrink-0 text-countdown-foreground hover:bg-countdown-foreground/10 hover:text-countdown-foreground"
+					>
+						Review cards
+					</Button>
+				)}
 				<Button
 					variant="ghost"
 					size="icon-sm"

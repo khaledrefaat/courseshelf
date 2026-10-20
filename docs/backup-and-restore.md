@@ -41,7 +41,9 @@ use those. Choose a new filename to retry. No backup file is silently overwritte
 or automatically deleted.
 
 Backups contain courses, lesson paths, progress, notes and SQL-plugin migration
-metadata. They **do not include videos or cover images**, nor the persisted
+metadata. Builds with migration 0006 also include saved flashcards, edits and
+cited transcript excerpts: treat these backups as private course content.
+They **do not include videos or cover images**, nor the persisted
 filesystem grants. Keep the original video folders and back up the app's
 `covers/` directory separately if you want to preserve its thumbnails.
 
@@ -89,6 +91,22 @@ create an empty database.
 Use backups from the same app version (or a supported earlier schema). Do not
 manually edit migration metadata or replace a newer database with an unsupported
 schema while the app is running.
+
+In flashcard-enabled builds, also compare `flashcard_sets` and `flashcards` row
+counts (older backups without migration 0006 do not have those tables):
+
+```sh
+sqlite3 -readonly '/absolute/path/to/live/courseshelf.db' "ATTACH DATABASE 'file:/absolute/path/to/backup.db?mode=ro' AS backup; SELECT 'flashcard_sets', (SELECT COUNT(*) FROM main.flashcard_sets), (SELECT COUNT(*) FROM backup.flashcard_sets) UNION ALL SELECT 'flashcards', (SELECT COUNT(*) FROM main.flashcards), (SELECT COUNT(*) FROM backup.flashcards); PRAGMA backup.foreign_key_check;"
+```
+
+Restored saved cards work without an API key or source transcript. Keys are
+session-only and never part of a backup. Private app-data `flashcard-jobs/`
+checkpoints are not in SQLite backups and are not needed to read completed sets.
+Restoring an older supported backup applies missing migrations through 0007 on next
+launch. Migration 0007 preserves existing cards/IDs/edits/evidence and expands only
+the AI-context text bound from 500 to 1,200 characters. It does
+not recover cards that were never present in that backup. Use the original/newer
+schema-compatible app when restoring; never edit SQLx records to downgrade.
 
 Cover cleanup is best-effort. A failed cleanup after editing/removal may leave
 an orphaned image in `covers/`. There is no automatic sweep.

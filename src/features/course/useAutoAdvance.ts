@@ -3,6 +3,7 @@ import {
 	type AutoAdvanceState,
 	bindAutoAdvanceEvents,
 	createAutoAdvance,
+	lessonEndReady,
 } from "@/features/course/autoAdvance";
 import { flushPendingData } from "@/features/course/closeProgress";
 import { isNativeVideoFullscreen } from "@/features/course/playerFullscreenDom";
@@ -16,6 +17,8 @@ export function useAutoAdvance(options: {
 	advance(): void;
 	exitFullscreen(): Promise<void>;
 	bindCancel(cancel: () => boolean): () => void;
+	canReview(): boolean;
+	openReview(current: () => boolean): Promise<void>;
 }) {
 	const latest = useRef(options);
 	const controller = useRef<ReturnType<typeof createAutoAdvance> | null>(null);
@@ -38,16 +41,18 @@ export function useAutoAdvance(options: {
 		const page = doc.defaultView;
 		if (!page) return;
 		let active = true;
+		const canEnd = () =>
+			lessonEndReady(video, {
+				blocked: latest.current.blocked,
+				hidden: doc.hidden,
+				popup: hasPlayerBlockingPopup(doc),
+			});
 		const countdown = createAutoAdvance({
-			canAdvance: () =>
-				latest.current.nextId !== null &&
-				!latest.current.blocked &&
-				video.ended &&
-				!video.error &&
-				Number.isFinite(video.duration) &&
-				video.duration > 0 &&
-				!doc.hidden &&
-				!hasPlayerBlockingPopup(doc),
+			canAdvance: () => latest.current.nextId !== null && canEnd(),
+			review: {
+				canOpen: () => canEnd() && latest.current.canReview(),
+				open: (current) => latest.current.openReview(current),
+			},
 			async beforeStart() {
 				if (isNativeVideoFullscreen(video)) {
 					await latest.current.exitFullscreen();
@@ -63,7 +68,7 @@ export function useAutoAdvance(options: {
 			failed: () => {
 				if (active)
 					setError(
-						"Could not advance automatically. Use Next when you are ready.",
+						"Could not open the lesson-end action. Use Review cards or Next when you are ready.",
 					);
 			},
 		});
@@ -79,5 +84,12 @@ export function useAutoAdvance(options: {
 			if (controller.current === countdown) controller.current = null;
 		};
 	}, [videoRef, source, bindCancel]);
-	return { state, error, cancel: () => controller.current?.cancel() };
+	return {
+		state,
+		error,
+		cancel: () => controller.current?.cancel(),
+		advanceNow: () => {
+			void controller.current?.advanceNow();
+		},
+	};
 }

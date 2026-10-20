@@ -7,6 +7,7 @@ import {
 	openCourseAction,
 	useManagement,
 } from "@/features/course-management/state";
+import { CourseFlashcardsDialog } from "@/features/flashcards/CourseFlashcardsDialog";
 import { DeleteCourseDialog } from "@/features/library/edit-cover/DeleteCourseDialog";
 import { EditCoverDialog } from "@/features/library/edit-cover/EditCoverDialog";
 import { type Course, getById } from "@/lib/db/courses";
@@ -63,7 +64,13 @@ export function ManagementHost() {
 			)}
 			{selection &&
 				course &&
-				(selection.action === "subtitles" ? (
+				(selection.action === "flashcards" ? (
+					<CourseFlashcardsDialog
+						key={course.id}
+						course={course}
+						onClose={closeCourseAction}
+					/>
+				) : selection.action === "subtitles" ? (
 					<CourseSubtitlesDialog
 						key={course.id}
 						course={course}

@@ -5,9 +5,10 @@
 	"packageManager": "pnpm@11.17.0",
 	"type": "module",
 	"scripts": {
+		"trial:flashcards": "node --experimental-strip-types scripts/flashcards/trial.ts",
 		"prepare:subtitles": "node scripts/subtitle-helpers.mjs",
 		"test": "vitest run",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "tsc --noEmit && tsc -p tsconfig.node.json && tsc -p scripts/flashcards/tsconfig.json",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
