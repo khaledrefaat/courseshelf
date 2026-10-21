@@ -8,6 +8,7 @@ import {
 import {
 	canResume,
 	generate,
+	inspectRecovery,
 	type Preparation,
 	plan,
 	type Reply,
@@ -66,6 +67,115 @@ function preparation(): Preparation {
 		},
 	};
 }
+
+function received(replies: Reply[]) {
+	const prepared = preparation();
+	prepared.source = structuredClone(prepared.source);
+	if (!prepared.resume) throw new Error("fixture");
+	prepared.resume.replies = replies;
+	prepared.resume.checkpoint.requests = replies.map((_, index) => ({
+		stage:
+			index < plan(source).sections.length
+				? `section-${index + 1}`
+				: "selection",
+		status: "received",
+		hash: "d".repeat(64),
+	}));
+	return { ...prepared, resume: prepared.resume };
+}
+it.each([
+	{
+		name: "extra evidence fields",
+		value: { ...card(2), evidence: [{ cueId: 2, quote: "unexpected" }] },
+	},
+	{ name: "string cue ID", value: { ...card(2), evidence: [{ cueId: "2" }] } },
+	{
+		name: "fractional cue ID",
+		value: { ...card(2), evidence: [{ cueId: 2.5 }] },
+	},
+	{ name: "cross-section cue", value: card(1) },
+])(
+	"offers explicit recovery for $name without accepting the bad evidence",
+	async ({ value }) => {
+		const bad = reply({ cards: [value], notes: "" });
+		const prepared = received([section(1), bad]);
+		const identity = prepared.resume.checkpoint.lesson;
+		const before = structuredClone(prepared);
+		expect(inspectRecovery(prepared, identity)).toMatchObject({
+			keep: 1,
+			requests: 2,
+		});
+		expect(prepared).toEqual(before);
+		const ask = vi.fn();
+		await expect(
+			generate(source, prepared.resume.replies, ask, () => {}),
+		).rejects.toThrow();
+		expect(ask).not.toHaveBeenCalled();
+	},
+);
+it("keeps all extraction responses when only selection failed", async () => {
+	const prepared = received([
+		section(1),
+		section(2),
+		reply({ selectedIds: [1], notes: "", cards: [] }),
+	]);
+	const recovery = inspectRecovery(prepared, prepared.resume.checkpoint.lesson);
+	expect(recovery).toMatchObject({ keep: 2, requests: 1 });
+	if (!recovery) throw new Error("Expected recoverable selection");
+	const ask = vi.fn(async (_stage: string) => selection);
+	await generate(
+		source,
+		prepared.resume.replies.slice(0, recovery.keep),
+		ask,
+		() => {},
+	);
+	expect(ask).toHaveBeenCalledOnce();
+	expect(ask.mock.calls[0]?.[0]).toBe("selection");
+});
+it.each([
+	{ finishReason: "length", model: MODEL, expected: "incomplete output" },
+	{ finishReason: "stop", model: "other-model", expected: "different model" },
+])(
+	"distinguishes $expected and offers received-only recovery",
+	async ({ finishReason, model, expected }) => {
+		const bad = { ...section(1), finishReason, model };
+		const prepared = received([bad]);
+		expect(
+			inspectRecovery(prepared, prepared.resume.checkpoint.lesson),
+		).toMatchObject({ keep: 0, reason: expect.stringContaining(expected) });
+		await expect(generate(source, [bad], vi.fn(), () => {})).rejects.toThrow(
+			expected,
+		);
+	},
+);
+it("does not recover uncertain, changed, corrupt or old-version checkpoints", () => {
+	for (const change of [
+		(p: ReturnType<typeof received>) => {
+			p.resume.resumable = false;
+		},
+		(p: ReturnType<typeof received>) => {
+			p.source.sourceHash = "changed";
+		},
+		(p: ReturnType<typeof received>) => {
+			p.source.sourceFingerprint = "changed";
+		},
+		(p: ReturnType<typeof received>) => {
+			p.resume.checkpoint.promptVersion = "old";
+		},
+		(p: ReturnType<typeof received>) => {
+			p.checkpointError = "corrupt";
+		},
+		(p: ReturnType<typeof received>) => {
+			p.resume.checkpoint.requests[0].status = "started";
+		},
+	]) {
+		const prepared = received([reply({})]);
+		change(prepared);
+		expect(
+			inspectRecovery(prepared, prepared.resume.checkpoint.lesson),
+		).toBeNull();
+	}
+});
 it("reuses received stages, selects across the entire lesson and derives evidence locally", async () => {
 	const ask = vi
 		.fn()

@@ -17,6 +17,29 @@ import {
 } from "@/features/flashcards/service";
 import type { Course } from "@/lib/db/courses";
 
+export function courseStartReason(options: {
+	preview: boolean;
+	active: boolean;
+	eligible: number;
+	retries: number;
+	consent: boolean;
+	maximumRequests: number;
+	keyReady: boolean;
+}) {
+	if (!options.preview) return "Wait for the lesson preview.";
+	if (options.active)
+		return "Wait for the running flashcard job, or cancel it.";
+	if (!options.eligible)
+		return options.retries
+			? "Failed responses need explicit retry confirmation. Choose Retry failed lessons only below."
+			: "No eligible lessons. Expand Lesson preview for details.";
+	if (!options.consent)
+		return "Confirm transcript uploads and credit use to continue.";
+	if (options.maximumRequests > 0 && !options.keyReady)
+		return "Enter your session API key to continue.";
+	return "";
+}
+
 export function CourseFlashcardsDialog({
 	course,
 	onClose,
@@ -28,6 +51,7 @@ export function CourseFlashcardsDialog({
 	const [progress, setProgress] = useState("Checking lessons…");
 	const [error, setError] = useState("");
 	const [consent, setConsent] = useState(false);
+	const [retryFailed, setRetryFailed] = useState(false);
 	const [keyOpen, setKeyOpen] = useState(false);
 	const [revision, setRevision] = useState(0);
 	const state = useFlashcards(),
@@ -38,6 +62,7 @@ export function CourseFlashcardsDialog({
 		const abort = new AbortController();
 		setPlan(null);
 		setConsent(false);
+		setRetryFailed(false);
 		setError("");
 		setProgress("Checking lessons…");
 		void courseFlashcards
@@ -60,7 +85,22 @@ export function CourseFlashcardsDialog({
 		void sessionKey().catch(() => {});
 		return () => abort.abort();
 	}, [course.id, course.title, revision]);
-	const eligible = plan?.items.filter((item) => item.status === "ready") ?? [];
+	const retries = plan?.items.filter((item) => item.status === "retry") ?? [];
+	const eligible =
+		plan?.items.filter(
+			(item) => item.status === (retryFailed ? "retry" : "ready"),
+		) ?? [];
+	const maximumRequests =
+		(retryFailed ? plan?.retryMaximumRequests : plan?.maximumRequests) ?? 0;
+	const blockedReason = courseStartReason({
+		preview: !!plan,
+		active,
+		eligible: eligible.length,
+		retries: retries.length,
+		consent,
+		maximumRequests,
+		keyReady: state.keyReady,
+	});
 	return (
 		<>
 			<Dialog
@@ -85,15 +125,16 @@ export function CourseFlashcardsDialog({
 					{plan && (
 						<>
 							<p>
-								{eligible.length} ready ·{" "}
+								{plan.items.filter((item) => item.status === "ready").length}{" "}
+								ready ·{" "}
 								{plan.items.filter((item) => item.status === "saved").length}{" "}
-								already processed ·{" "}
+								already processed · {retries.length} failed, retry available ·{" "}
 								{plan.items.filter((item) => item.status === "issue").length}{" "}
 								need attention
 							</p>
 							<p>
-								At most <strong>{plan.maximumRequests} new API requests</strong>
-								; {eligible.reduce((n, item) => n + item.reused, 0)} received
+								At most <strong>{maximumRequests} new API requests</strong>;{" "}
+								{eligible.reduce((n, item) => n + item.reused, 0)} received
 								responses reused. Each request is capped at 8,192 output tokens;
 								actual input usage varies. This is not a price or
 								package-billing estimate.
@@ -106,17 +147,38 @@ export function CourseFlashcardsDialog({
 											<span className="font-medium">{item.title}</span>:{" "}
 											{item.status === "ready"
 												? `up to ${item.requests} new requests · ${item.reused} reused`
-												: item.reason}
+												: item.status === "retry"
+													? `Retry available: ${item.reason} Keep ${item.reused} validated response(s); up to ${item.requests} new requests.`
+													: item.reason}
 										</li>
 									))}
 								</ul>
 							</details>
 							<p className="text-sm text-muted-foreground">
 								Uses matching VTT/SRT subtitles or valid generated caches.
-								Missing/invalid transcripts and checkpoints needing attention
-								are skipped—run course subtitles first if needed. No automatic
-								transcription, start-over or API retries.
+								Missing/invalid transcripts and unsafe, changed or uncertain
+								checkpoints are skipped and need individual attention. No
+								automatic transcription, start-over or API retries.
 							</p>
+							{!!retries.length && (
+								<label className="flex items-start gap-2 text-sm">
+									<input
+										type="checkbox"
+										className="mt-0.5 accent-brand"
+										checked={retryFailed}
+										disabled={active}
+										onChange={(event) => {
+											setRetryFailed(event.target.checked);
+											setConsent(false);
+										}}
+									/>
+									Retry failed lessons only ({retries.length}). Keep validated
+									sections before the failure; replace the failed stage and any
+									later stages. Original checkpoints stay until cards are saved.
+									Previously failed requests may already have consumed credits.
+									A new failure stops that lesson; no automatic retry.
+								</label>
+							)}
 							<label className="flex items-start gap-2 text-sm">
 								<input
 									className="mt-0.5 accent-brand"
@@ -164,6 +226,11 @@ export function CourseFlashcardsDialog({
 							{error}
 						</p>
 					)}
+					{!!blockedReason && (
+						<p role="status" className="text-sm text-muted-foreground">
+							{blockedReason}
+						</p>
+					)}
 					<div className="flex flex-wrap justify-end gap-2">
 						<Button
 							variant="ghost"
@@ -176,22 +243,18 @@ export function CourseFlashcardsDialog({
 							Cancel
 						</Button>
 						<Button
-							disabled={
-								!plan ||
-								!eligible.length ||
-								!consent ||
-								active ||
-								(plan.maximumRequests > 0 && !state.keyReady)
-							}
+							disabled={!!blockedReason}
 							onClick={() => {
 								if (!plan) return;
 								void courseFlashcards
-									.start(plan)
+									.start(plan, retryFailed)
 									.catch((cause) => setError(String(cause)));
 								if (courseFlashcards.getSnapshot()?.running) onClose();
 							}}
 						>
-							Generate missing flashcards
+							{retryFailed
+								? "Retry failed lessons"
+								: "Generate missing flashcards"}
 						</Button>
 					</div>
 				</DialogContent>

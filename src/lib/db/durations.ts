@@ -1,5 +1,46 @@
 import { getDb } from "@/lib/db/db";
 
+// A partial sum must not be presented as the full course length. Ignore missing
+// lessons in callers and reject invalid cached values, including SQLite infinity.
+export const durationTotalSql = `CASE
+	WHEN COUNT(*) > 0 AND SUM(CASE WHEN duration_seconds > 0
+		AND duration_seconds <= ${Number.MAX_VALUE} THEN 1 ELSE 0 END) = COUNT(*)
+	THEN SUM(duration_seconds) ELSE NULL END`;
+
+export interface DurationLesson {
+	id: number;
+	course_id: number;
+	relative_path: string;
+	duration_seconds: number | null;
+}
+
+export async function listUncachedDurations(
+	courseId: number,
+): Promise<DurationLesson[]> {
+	const db = await getDb();
+	return db.select<DurationLesson[]>(
+		`SELECT id, course_id, relative_path, duration_seconds FROM lessons
+		WHERE course_id=$1 AND missing_at IS NULL AND (duration_seconds IS NULL
+			OR duration_seconds <= 0 OR duration_seconds > ${Number.MAX_VALUE})
+		ORDER BY sort_order, id`,
+		[courseId],
+	);
+}
+
+export async function getCourseDuration(
+	courseId: number,
+): Promise<number | null> {
+	const db = await getDb();
+	const rows = await db.select<{ seconds: number | null }[]>(
+		`SELECT ${durationTotalSql} AS seconds FROM lessons WHERE course_id=$1 AND missing_at IS NULL`,
+		[courseId],
+	);
+	const seconds = rows[0]?.seconds;
+	return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+		? seconds
+		: null;
+}
+
 const revisions = new Map<number, number>();
 const writes = new Map<number, Promise<unknown>>();
 function ordered<T>(courseId: number, operation: () => Promise<T>): Promise<T> {

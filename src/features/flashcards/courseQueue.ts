@@ -1,6 +1,7 @@
 import type { FlashcardLesson } from "@/lib/db/flashcards";
 import {
 	canResume,
+	inspectRecovery,
 	type Preparation,
 	remainingRequests,
 	type Usage,
@@ -15,20 +16,23 @@ export interface CourseLesson {
 	title: string;
 }
 export interface CourseItem extends CourseLesson {
-	status: "ready" | "saved" | "issue";
+	status: "ready" | "retry" | "saved" | "issue";
 	reason: string;
 	signature: string;
 	requests: number;
 	reused: number;
+	retryKeep: number | null;
 }
 export interface CoursePlan {
 	courseId: number;
 	title: string;
 	items: readonly CourseItem[];
 	maximumRequests: number;
+	retryMaximumRequests: number;
 	check(): void;
 }
 export interface RequestObserver {
+	retryKeep?: number;
 	check(): void;
 	request(): void;
 	reply(usage: Usage | null, reused: boolean): void;
@@ -74,6 +78,8 @@ export interface CourseFlashcardState {
 	newTokens: number;
 	reusedTokens: number;
 	unknownUsage: number;
+	excludedTokens?: number;
+	excludedUnknownUsage?: number;
 	errors: string[];
 }
 const text = (cause: unknown) =>
@@ -89,6 +95,7 @@ export function describePrepared(input: PreparedLesson) {
 			"Checkpoint needs individual attention; no automatic start-over.",
 		);
 	const replies = prepared.resume?.replies ?? [];
+	const recovery = inspectRecovery(prepared, identity);
 	return {
 		signature: JSON.stringify({
 			identity,
@@ -97,8 +104,10 @@ export function describePrepared(input: PreparedLesson) {
 			filename: prepared.source.filename,
 			checkpoint: prepared.resume?.checkpoint ?? null,
 		}),
-		requests: remainingRequests(prepared.source, replies),
-		reused: replies.length,
+		requests: recovery?.requests ?? remainingRequests(prepared.source, replies),
+		reused: recovery?.keep ?? replies.length,
+		retryKeep: recovery?.keep ?? null,
+		reason: recovery?.reason ?? "",
 	};
 }
 
@@ -165,6 +174,7 @@ export class CourseFlashcardQueue {
 				signature: "",
 				requests: 0,
 				reused: 0,
+				retryKeep: null,
 			};
 			try {
 				const saved = await this.deps.saved(lesson.id);
@@ -190,7 +200,10 @@ export class CourseFlashcardQueue {
 					}
 				} else {
 					const input = await this.deps.prepare(courseId, lesson.id);
-					Object.assign(item, describePrepared(input), { status: "ready" });
+					const description = describePrepared(input);
+					Object.assign(item, description, {
+						status: description.retryKeep === null ? "ready" : "retry",
+					});
 				}
 			} catch (cause) {
 				item.reason = text(cause);
@@ -203,12 +216,19 @@ export class CourseFlashcardQueue {
 			courseId,
 			title,
 			items,
-			maximumRequests: items.reduce((n, item) => n + item.requests, 0),
+			maximumRequests: items.reduce(
+				(n, item) => n + (item.status === "ready" ? item.requests : 0),
+				0,
+			),
+			retryMaximumRequests: items.reduce(
+				(n, item) => n + (item.status === "retry" ? item.requests : 0),
+				0,
+			),
 			check: valid,
 		};
 	}
 
-	start(plan: CoursePlan): Promise<void> {
+	start(plan: CoursePlan, retryFailed = false): Promise<void> {
 		if (this.run)
 			return Promise.reject(
 				new Error("Another course flashcard queue is active."),
@@ -244,10 +264,14 @@ export class CourseFlashcardQueue {
 			failed: 0,
 			current: "Preparing…",
 			requests: 0,
-			maximumRequests: plan.maximumRequests,
+			maximumRequests: retryFailed
+				? plan.retryMaximumRequests
+				: plan.maximumRequests,
 			newTokens: 0,
 			reusedTokens: 0,
 			unknownUsage: 0,
+			excludedTokens: 0,
+			excludedUnknownUsage: 0,
 			errors: [],
 		};
 		this.update({});
@@ -265,7 +289,7 @@ export class CourseFlashcardQueue {
 					check();
 					this.update({ current: item.title });
 					try {
-						if (item.status !== "ready") {
+						if (item.status !== (retryFailed ? "retry" : "ready")) {
 							this.update({ skipped: this.stats.skipped + 1 });
 							if (item.status === "issue")
 								report(`${item.title}: ${item.reason}`);
@@ -278,6 +302,7 @@ export class CourseFlashcardQueue {
 							const current = describePrepared(input);
 							if (
 								current.signature !== item.signature ||
+								current.retryKeep !== item.retryKeep ||
 								current.requests > item.requests
 							)
 								throw new Error(
@@ -287,18 +312,34 @@ export class CourseFlashcardQueue {
 							if (await this.deps.saved(item.id)) {
 								this.update({ skipped: this.stats.skipped + 1 });
 							} else {
+								if (retryFailed) {
+									const excluded =
+										input.prepared.resume?.replies.slice(item.reused) ?? [];
+									this.update({
+										excludedTokens:
+											(this.stats.excludedTokens ?? 0) +
+											excluded.reduce(
+												(n, reply) => n + (reply.usage?.totalTokens ?? 0),
+												0,
+											),
+										excludedUnknownUsage:
+											(this.stats.excludedUnknownUsage ?? 0) +
+											excluded.filter((reply) => !reply.usage).length,
+									});
+								}
 								let requests = 0;
 								await this.deps.generate(
 									input,
 									!!input.prepared.resume,
 									owner,
 									{
+										retryKeep: retryFailed ? item.reused : undefined,
 										check,
 										request: () => {
 											check();
 											if (
 												requests >= item.requests ||
-												this.stats.requests >= plan.maximumRequests
+												this.stats.requests >= this.stats.maximumRequests
 											)
 												throw new BatchStopped(
 													"Confirmed request limit reached. No extra request was sent.",

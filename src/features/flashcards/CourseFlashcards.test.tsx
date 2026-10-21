@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 import { CourseFlashcardStatus } from "@/features/flashcards/CourseFlashcardStatus";
-import { CourseFlashcardsDialog } from "@/features/flashcards/CourseFlashcardsDialog";
+import {
+	CourseFlashcardsDialog,
+	courseStartReason,
+} from "@/features/flashcards/CourseFlashcardsDialog";
 import { FlashcardKeyDialog } from "@/features/flashcards/FlashcardKeyDialog";
 import {
 	courseFlashcards,
@@ -81,6 +84,39 @@ it("shows completion issues and unknown usage without pretending they are free o
 	expect(html).toContain("HTTP failure");
 	expect(html).toContain("Dismiss");
 	expect(html).not.toContain("Cancel</button>");
+});
+it("explains every blocked action and requires renewed consent and a key for paid recovery", () => {
+	const ready = {
+		preview: true,
+		active: false,
+		eligible: 5,
+		retries: 5,
+		consent: true,
+		maximumRequests: 7,
+		keyReady: true,
+	};
+	expect(courseStartReason({ ...ready, preview: false })).toContain(
+		"Wait for the lesson preview",
+	);
+	expect(courseStartReason({ ...ready, active: true })).toContain(
+		"running flashcard job",
+	);
+	expect(courseStartReason({ ...ready, eligible: 0 })).toContain(
+		"Choose Retry failed lessons only",
+	);
+	expect(courseStartReason({ ...ready, eligible: 0, retries: 0 })).toContain(
+		"No eligible lessons",
+	);
+	expect(courseStartReason({ ...ready, consent: false })).toContain(
+		"credit use",
+	);
+	expect(courseStartReason({ ...ready, keyReady: false })).toContain(
+		"session API key",
+	);
+	expect(courseStartReason(ready)).toBe("");
+	expect(
+		courseStartReason({ ...ready, maximumRequests: 0, keyReady: false }),
+	).toBe("");
 });
 it("reuses a private session-only password dialog with no secret in the rendered markup", () => {
 	const html = renderToStaticMarkup(<FlashcardKeyDialog onClose={() => {}} />);

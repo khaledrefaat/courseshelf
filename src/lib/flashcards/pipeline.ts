@@ -128,9 +128,13 @@ export function canResume(
 	);
 }
 function parse(reply: Reply): unknown {
-	if (reply.model !== MODEL || reply.finishReason !== "stop")
+	if (reply.model !== MODEL)
 		throw new Error(
-			"Provider returned a different model or incomplete output. Existing cards were kept.",
+			"Provider returned a different model. Existing cards were kept.",
+		);
+	if (reply.finishReason !== "stop")
+		throw new Error(
+			"Provider returned incomplete output. Existing cards were kept.",
 		);
 	try {
 		return JSON.parse(reply.content);
@@ -178,6 +182,33 @@ export function remainingRequests(source: Source, replies: readonly Reply[]) {
 		deduplicate(extracted.flatMap((result) => result.cards)).length >
 			current.range.max;
 	return selectionNeeded && replies.length === current.sections.length ? 1 : 0;
+}
+
+// Explicit recovery may reuse only the contiguous validated prefix. Never coerce
+// cue IDs, ignore extra fields, or include candidates from a failed response.
+export function inspectRecovery(
+	prepared: Preparation,
+	identity: Checkpoint["lesson"],
+) {
+	if (
+		prepared.checkpointError ||
+		!prepared.resume ||
+		!canResume(prepared, identity)
+	)
+		return null;
+	const replies = prepared.resume.replies;
+	for (let index = 0; index < replies.length; index++) {
+		try {
+			validateReceived(prepared.source, replies.slice(0, index + 1));
+		} catch (cause) {
+			return {
+				keep: index,
+				reason: cause instanceof Error ? cause.message : "Invalid response.",
+				requests: remainingRequests(prepared.source, replies.slice(0, index)),
+			};
+		}
+	}
+	return null;
 }
 
 export async function generate(

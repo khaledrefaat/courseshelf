@@ -17,6 +17,7 @@ import { listByCourse } from "@/lib/db/lessons";
 import {
 	canResume,
 	generate,
+	inspectRecovery,
 	type Preparation,
 	plan,
 	type Reply,
@@ -161,7 +162,17 @@ export function startFlashcards(
 	run.task = (async () => {
 		let saved = false;
 		try {
-			const reused = resume ? (input.prepared.resume?.replies ?? []) : [];
+			const retryKeep = batch?.observer.retryKeep;
+			const recovery =
+				retryKeep === undefined
+					? null
+					: inspectRecovery(input.prepared, input.identity);
+			if (retryKeep !== undefined && (!recovery || recovery.keep !== retryKeep))
+				throw new Error(
+					"Recovery changed. Preview again; no requests were sent.",
+				);
+			const received = resume ? (input.prepared.resume?.replies ?? []) : [];
+			const reused = recovery ? received.slice(0, recovery.keep) : received;
 			if (resume && !canResume(input.prepared, input.identity))
 				throw new Error(
 					"Checkpoint cannot be resumed safely. No requests were sent.",
@@ -175,6 +186,12 @@ export function startFlashcards(
 					preparedId: input.prepared.id,
 					sections: currentPlan.bounds,
 					resume,
+					retry: recovery
+						? {
+								checkpoint: input.prepared.resume?.checkpoint,
+								keep: recovery.keep,
+							}
+						: null,
 				});
 			} catch (cause) {
 				if (batch) throw new BatchStopped(message(cause));

@@ -14,6 +14,7 @@ it("keeps Edit and Remove controls outside the course navigation link", () => {
 		cover_path: null,
 		completed_lessons: 0,
 		total_lessons: 2,
+		duration_seconds: null,
 		last_watched_at: null,
 		resume_lesson_id: 1,
 		resume_lesson_title: "One",

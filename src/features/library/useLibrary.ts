@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useManagement } from "@/features/course-management/state";
 import { retainCoverCache } from "@/features/library/coverCache";
 import {
@@ -15,6 +15,18 @@ import {
 export function useLibrary() {
 	const { revision } = useManagement();
 	const [courses, setCourses] = useState<CourseSummary[] | null>(null);
+	const [loadedRevision, setLoadedRevision] = useState(0);
+	const updateDuration = useCallback(
+		(courseId: number, duration_seconds: number | null) => {
+			setCourses(
+				(previous) =>
+					previous?.map((course) =>
+						course.id === courseId ? { ...course, duration_seconds } : course,
+					) ?? null,
+			);
+		},
+		[],
+	);
 	const [registrations, setRegistrations] = useState<
 		Map<number, Readonly<RegistrationStatus>>
 	>(new Map());
@@ -40,6 +52,7 @@ export function useLibrary() {
 				}
 				setCourses(data);
 				setRegistrations(statuses);
+				setLoadedRevision((value) => value + 1);
 			})
 			.catch(() => {
 				if (active)
@@ -52,5 +65,12 @@ export function useLibrary() {
 			release();
 		};
 	}, [revision]);
-	return { courses, registrations, error, registrationError };
+	return {
+		courses,
+		registrations,
+		error,
+		registrationError,
+		loadedRevision,
+		updateDuration,
+	};
 }

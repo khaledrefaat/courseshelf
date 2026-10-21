@@ -57,8 +57,27 @@ before generation, so large courses do not rely on expired native preparation ID
 Saved sets are skipped, even if empty or all cards were manually deleted. Edits are
 kept. Changed sources are flagged when readable, but batch generation never replaces
 old sets: regenerate them individually if desired. Missing/invalid transcripts and
-uncertain/outdated/malformed checkpoints are listed and skipped. This never chains
-subtitle generation or discards a checkpoint. Run course subtitles first if needed.
+uncertain/outdated/corrupt checkpoints are listed and skipped. This never chains
+subtitle generation. Run course subtitles first if needed.
+
+**Recover failed lessons:** a received AI response that fails schema, evidence,
+model or completion checks is shown as **failed, retry available**, not ready.
+Select **Retry failed lessons only**, review the per-lesson reasons, retained response
+counts and maximum new requests, then confirm transcript uploads/credit use again and
+enter your session key. Click **Retry failed lessons**. This processes only those
+recoverable failures, not other ready lessons or saved sets.
+
+Recovery retains the contiguous validated sections before the first failure and
+regenerates that stage and dependent later stages. A failed final selection reuses
+all valid extraction sections. No evidence is coerced or ignored to make invalid
+output pass. Original root checkpoints remain until successful publication or an
+explicit discard; staged retries use two bounded alternating owned slots and an
+atomic active-slot pointer. A failed/cancelled retry never triggers another retry.
+Use Refresh preview to inspect it and explicitly confirm any further attempt.
+Changed sources, unknown request outcomes, older versions and corrupt checkpoint
+files remain blocked for individual attention—this flow never silently starts over.
+The disabled action now explains whether preview, eligible lessons, consent, a key
+or completion/cancellation of another job is needed.
 
 Confirm the eligible transcript uploads, use of credits and reuse of compatible
 received work. The displayed maximum NEW request count is a conservative bound,
@@ -177,6 +196,9 @@ Received responses are checkpointed before semantic validation. On failure, the
 old saved set remains available. Reopen Generate to inspect/resume received work:
 the app checks source hash, video fingerprint, exact cue sections, versions and
 response hashes, then validates **all** cached content before any new paid call.
+The separately confirmed course recovery flow above may exclude an invalid suffix;
+only the retained prefix is used as input to new generation, with the native side
+checking the exact confirmed manifest again before switching recovery slots.
 Malformed content is not silently repaired. A request recorded as started without
 a fully recorded response has uncertain usage and cannot be automatically resumed.
 You can explicitly discard/start over (which may repeat charges), or discard the
@@ -186,7 +208,9 @@ under prompt 8/validator 7: discard/start over is explicit and may incur charges
 can still reuse compatible older responses after validation and records their original
 prompt versions; reused content is not retroactively made concept-focused.
 
-Reported tokens for new requests are separate from reused-request usage. Missing
+Reported tokens for new requests are separate from reused-request usage. During
+recovery, earlier received responses excluded from reuse have a separate reported
+token/unknown-usage count; those requests may already have cost credits. Missing
 usage is unknown, not zero. These counts are not a currency or package-billing
 estimate; check the provider dashboard. Cancel before the final commit keeps the
 previous set; once the atomic SQL commit succeeded, cancellation cannot undo it.

@@ -6,7 +6,9 @@ import { getCourseOutline } from "@/lib/db/courseOutline";
 import { listCourseSummaries } from "@/lib/db/courseSummaries";
 import {
 	durationRevision,
+	getCourseDuration,
 	invalidateDurations,
+	listUncachedDurations,
 	saveDuration,
 } from "@/lib/db/durations";
 import {
@@ -93,7 +95,14 @@ it("distinguishes missing course from course with no active lessons", async () =
 
 it("persists duration cache without touching progress and invalidates stale metadata after rescan", async () => {
 	const revision = durationRevision(1);
+	expect((await listUncachedDurations(1)).map((row) => row.id)).toEqual([2, 1]);
 	expect(await saveDuration(1, 1, 760, revision)).toBe(true);
+	expect(await getCourseDuration(1)).toBeNull();
+	expect((await listUncachedDurations(1)).map((row) => row.id)).toEqual([2]);
+	expect(await saveDuration(1, 2, 60, revision)).toBe(true);
+	expect(await getCourseDuration(1)).toBe(820);
+	expect(await listUncachedDurations(1)).toEqual([]);
+	expect(await getCourseDuration(2)).toBeNull();
 	expect(
 		(await getCourseOutline(1))?.lessons.find((row) => row.id === 1)
 			?.duration_seconds,
@@ -103,6 +112,10 @@ it("persists duration cache without touching progress and invalidates stale meta
 		last_position_seconds: 42.5,
 	});
 	await invalidateDurations(1);
+	expect(await getCourseDuration(1)).toBeNull();
+	expect(
+		(await listCourseSummaries()).find((row) => row.id === 1)?.duration_seconds,
+	).toBeNull();
 	expect(await saveDuration(1, 1, 999, revision)).toBe(false);
 	expect(
 		(await getCourseOutline(1))?.lessons.find((row) => row.id === 1)

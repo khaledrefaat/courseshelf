@@ -189,6 +189,236 @@ fn stage_order_versions_ids_and_hard_bounds_are_enforced() {
     assert!(!valid_id(&"A".repeat(64)));
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn explicit_recovery_preserves_originals_and_copies_only_the_confirmed_prefix() {
+    let (root, mut checkpoint) = fixture();
+    let base = storage::lesson_dir(&root, 1, 2).unwrap();
+    for index in 0..2 {
+        let reply = Reply {
+            content: format!("response-{index}"),
+            usage: None,
+            model: http::MODEL.into(),
+            finish_reason: "stop".into(),
+        };
+        checkpoint.requests.push(Record {
+            stage: checkpoint.stage(index),
+            status: "received".into(),
+            hash: Some(storage::save_reply(&base, index, &reply).unwrap()),
+        });
+    }
+    storage::save(&base, &checkpoint).unwrap();
+    let original = fs::read(base.join("manifest.json")).unwrap();
+    let original_response = fs::read(base.join("response-1.json")).unwrap();
+    let (active, retry) = storage::recover(&base, &checkpoint, 1).unwrap();
+    assert_ne!(retry.id, checkpoint.id);
+    assert_eq!(retry.requests.len(), 1);
+    assert_eq!(storage::active_dir(&base).unwrap(), active);
+    assert_eq!(
+        storage::replies(&active, &retry).unwrap()[0].content,
+        "response-0"
+    );
+    assert!(!active.join("response-1.json").exists());
+    assert_eq!(fs::read(base.join("manifest.json")).unwrap(), original);
+    assert_eq!(
+        fs::read(base.join("response-1.json")).unwrap(),
+        original_response
+    );
+    assert!(storage::recover(&base, &checkpoint, 0).is_err()); // stale confirmation
+    assert!(storage::recover(&base, &retry, 1).is_err()); // no failed suffix
+    // An interrupted request is never converted into a paid retry.
+    let mut uncertain = retry.clone();
+    uncertain.requests.push(Record {
+        stage: "selection".into(),
+        status: "started".into(),
+        hash: None,
+    });
+    storage::save(&active, &uncertain).unwrap();
+    assert!(storage::recover(&base, &uncertain, 1).is_err());
+    assert_eq!(fs::read(base.join("manifest.json")).unwrap(), original);
+    // Explicit discard clears only the owned files, including both bounded slots.
+    storage::clear(&base).unwrap();
+    assert_eq!(fs::read_dir(&base).unwrap().count(), 0);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn repeated_recovery_is_bounded_and_failed_or_unsafe_staging_never_switches_the_active_checkpoint()
+{
+    let (root, mut checkpoint) = fixture();
+    let base = storage::lesson_dir(&root, 1, 2).unwrap();
+    let reply = Reply {
+        content: "invalid received response".into(),
+        usage: None,
+        model: http::MODEL.into(),
+        finish_reason: "length".into(),
+    };
+    checkpoint.requests.push(Record {
+        stage: "section-1".into(),
+        status: "received".into(),
+        hash: Some(storage::save_reply(&base, 0, &reply).unwrap()),
+    });
+    storage::save(&base, &checkpoint).unwrap();
+    let original = fs::read(base.join("manifest.json")).unwrap();
+    let (mut active, mut current) = storage::recover(&base, &checkpoint, 0).unwrap();
+    for _ in 0..4 {
+        current.requests.push(Record {
+            stage: "section-1".into(),
+            status: "received".into(),
+            hash: Some(storage::save_reply(&active, 0, &reply).unwrap()),
+        });
+        storage::save(&active, &current).unwrap();
+        (active, current) = storage::recover(&base, &current, 0).unwrap();
+    }
+    assert_eq!(fs::read(base.join("manifest.json")).unwrap(), original);
+    assert_eq!(
+        fs::read_dir(&base)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.path().is_dir())
+            .count(),
+        2
+    );
+    current.requests.push(Record {
+        stage: "section-1".into(),
+        status: "received".into(),
+        hash: Some(storage::save_reply(&active, 0, &reply).unwrap()),
+    });
+    storage::save(&active, &current).unwrap();
+    let inactive = base.join(if active.ends_with("retry-a") {
+        "retry-b"
+    } else {
+        "retry-a"
+    });
+    fs::write(inactive.join("personal.txt"), "keep").unwrap();
+    assert!(storage::recover(&base, &current, 0).is_err());
+    assert_eq!(storage::active_dir(&base).unwrap(), active);
+    assert!(storage::clear(&base).is_err());
+    assert_eq!(fs::read(base.join("manifest.json")).unwrap(), original);
+    assert_eq!(
+        fs::read_to_string(inactive.join("personal.txt")).unwrap(),
+        "keep"
+    );
+    fs::remove_file(inactive.join("personal.txt")).unwrap();
+    // Corrupt response hashes cannot seed recovery.
+    fs::write(active.join("response-0.json"), "tampered").unwrap();
+    assert!(storage::recover(&base, &current, 0).is_err());
+    assert_eq!(storage::active_dir(&base).unwrap(), active);
+    storage::clear(&base).unwrap();
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn recovery_binds_the_current_source_lesson_sections_and_versions_before_mutation() {
+    let (root, mut checkpoint) = fixture();
+    let base = storage::lesson_dir(&root, 1, 2).unwrap();
+    let reply = Reply {
+        content: "{}".into(),
+        usage: None,
+        model: http::MODEL.into(),
+        finish_reason: "stop".into(),
+    };
+    checkpoint.requests.push(Record {
+        stage: "section-1".into(),
+        status: "received".into(),
+        hash: Some(storage::save_reply(&base, 0, &reply).unwrap()),
+    });
+    storage::save(&base, &checkpoint).unwrap();
+    let bytes = fs::read(base.join("manifest.json")).unwrap();
+    let retry = Recovery {
+        checkpoint: checkpoint.clone(),
+        keep: 0,
+    };
+    let source = Source {
+        content: String::new(),
+        filename: "lesson.vtt".into(),
+        source_hash: checkpoint.source_hash.clone(),
+        source_fingerprint: checkpoint.source_fingerprint.clone(),
+    };
+    let mut changed_source = source.clone();
+    changed_source.source_hash = "d".repeat(64);
+    assert!(
+        recover_checkpoint(
+            &base,
+            &checkpoint.lesson,
+            &changed_source,
+            &checkpoint.sections,
+            &retry
+        )
+        .is_err()
+    );
+    changed_source = source.clone();
+    changed_source.source_fingerprint = "d".repeat(64);
+    assert!(
+        recover_checkpoint(
+            &base,
+            &checkpoint.lesson,
+            &changed_source,
+            &checkpoint.sections,
+            &retry
+        )
+        .is_err()
+    );
+    let mut other = checkpoint.lesson.clone();
+    other.relative_path = "other.mp4".into();
+    assert!(recover_checkpoint(&base, &other, &source, &checkpoint.sections, &retry).is_err());
+    let bounds = vec![Bounds {
+        first_cue: 1,
+        last_cue: 4,
+    }];
+    assert!(recover_checkpoint(&base, &checkpoint.lesson, &source, &bounds, &retry).is_err());
+    checkpoint.prompt_version = "old".into();
+    storage::save(&base, &checkpoint).unwrap();
+    assert!(
+        recover_checkpoint(
+            &base,
+            &checkpoint.lesson,
+            &source,
+            &checkpoint.sections,
+            &retry
+        )
+        .is_err()
+    );
+    assert!(!base.join("active.json").exists());
+    checkpoint.prompt_version = PROMPT.into();
+    storage::save(&base, &checkpoint).unwrap();
+    assert_eq!(fs::read(base.join("manifest.json")).unwrap(), bytes);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn recovery_rejects_linked_slots_and_pointer_files() {
+    use std::os::unix::fs::symlink;
+    let (root, mut checkpoint) = fixture();
+    let base = storage::lesson_dir(&root, 1, 2).unwrap();
+    let outside = root.join("outside");
+    fs::create_dir(&outside).unwrap();
+    let reply = Reply {
+        content: "{}".into(),
+        usage: None,
+        model: http::MODEL.into(),
+        finish_reason: "stop".into(),
+    };
+    checkpoint.requests.push(Record {
+        stage: "section-1".into(),
+        status: "received".into(),
+        hash: Some(storage::save_reply(&base, 0, &reply).unwrap()),
+    });
+    storage::save(&base, &checkpoint).unwrap();
+    symlink(&outside, base.join("retry-a")).unwrap();
+    assert!(storage::recover(&base, &checkpoint, 0).is_err());
+    assert!(storage::clear(&base).is_err());
+    assert!(base.join("manifest.json").exists());
+    fs::remove_file(base.join("retry-a")).unwrap();
+    let private = outside.join("private.json");
+    fs::write(&private, "\"retry-a\"").unwrap();
+    symlink(&private, base.join("active.json")).unwrap();
+    assert!(storage::active_dir(&base).is_err());
+    assert!(storage::recover(&base, &checkpoint, 0).is_err());
+    assert_eq!(fs::read_to_string(private).unwrap(), "\"retry-a\"");
+    fs::remove_dir_all(root).unwrap();
+}
 #[test]
 fn cleanup_is_course_scoped_and_never_recurses_into_unknown_files() {
     let (root, checkpoint) = fixture();
@@ -245,6 +475,7 @@ fn cancellation_aborts_matching_jobs_and_does_not_need_a_player() {
     let aborted = Arc::new(AtomicBool::new(false));
     let observed = aborted.clone();
     let job = Arc::new(Job {
+        base_directory: root.clone(),
         id: checkpoint.id.clone(),
         lesson: checkpoint.lesson.clone(),
         source: Source {

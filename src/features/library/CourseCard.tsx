@@ -1,8 +1,9 @@
-import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Clock3, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { totalTime } from "@/features/course/durations";
 import { CourseCover } from "@/features/library/CourseCover";
 import { courseStatus, progressPercent } from "@/features/library/model";
 import type { CourseSummary } from "@/lib/db/courseSummaries";
@@ -64,6 +65,18 @@ export function CourseCard({
 						{course.title}
 					</h2>
 					<FolderWarning registration={registration} />
+					<p
+						className="flex items-center gap-1.5 text-xs text-muted-foreground"
+						title={
+							course.duration_seconds === null
+								? "Total duration is unavailable until all lesson durations are known."
+								: "Total course duration"
+						}
+					>
+						<Clock3 aria-hidden="true" className="size-3.5 shrink-0" />
+						<span className="sr-only">Total course duration: </span>
+						<span>{totalTime(course.duration_seconds)}</span>
+					</p>
 					<div className="flex justify-between text-xs">
 						<span className="text-muted-foreground">
 							{course.completed_lessons} / {course.total_lessons} lessons

@@ -27,6 +27,7 @@ import {
 	sortCourses,
 } from "@/features/library/model";
 import { useLibrary } from "@/features/library/useLibrary";
+import { useLibraryDurations } from "@/features/library/useLibraryDurations";
 import type { CourseSummary } from "@/lib/db/courseSummaries";
 
 const tabs: { value: StatusFilter; label: string }[] = [
@@ -50,10 +51,28 @@ export function LibraryPage({
 	search: string;
 	onAddCourse?: () => void;
 }) {
-	const { courses, registrations, error, registrationError } = useLibrary();
+	const {
+		courses,
+		registrations,
+		error,
+		registrationError,
+		loadedRevision,
+		updateDuration,
+	} = useLibrary();
 	const [status, setStatus] = useState<StatusFilter>("All");
 	const [sort, setSort] = useState<CourseSort>("Last watched");
 	const { busy } = useManagement();
+	const visible = sortCourses(
+		filterCourses(courses ?? [], status, search),
+		sort,
+	);
+	useLibraryDurations(
+		visible,
+		registrations,
+		loadedRevision,
+		busy,
+		updateDuration,
+	);
 	if (error)
 		return (
 			<main className="p-10" role="alert">
@@ -79,10 +98,6 @@ export function LibraryPage({
 		(course) => course.archived_at === null,
 	);
 	const continuing = continueCourse(activeCourses);
-	const visible = sortCourses(
-		filterCourses(currentCourses, status, search),
-		sort,
-	);
 	const grid = visible.length ? (
 		<div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{visible.map((course) => (

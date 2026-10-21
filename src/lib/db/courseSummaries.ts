@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db/db";
+import { durationTotalSql } from "@/lib/db/durations";
 import { waitForProgressWrites } from "@/lib/db/progressWrites";
 import { displayTitle } from "@/lib/displayTitle";
 
@@ -9,6 +10,7 @@ export interface CourseSummary {
 	created_at: string;
 	archived_at: string | null;
 	total_lessons: number;
+	duration_seconds: number | null;
 	completed_lessons: number;
 	last_watched_at: string | null;
 	resume_lesson_id: number | null;
@@ -26,6 +28,7 @@ export async function listCourseSummaries(): Promise<CourseSummary[]> {
 			WHERE l.missing_at IS NULL
 		), totals AS (
 			SELECT course_id, COUNT(*) AS total_lessons,
+				${durationTotalSql} AS duration_seconds,
 				SUM(completed) AS completed_lessons, MAX(last_watched_at) AS last_watched_at
 			FROM active GROUP BY course_id
 		), watched AS (
@@ -49,6 +52,7 @@ export async function listCourseSummaries(): Promise<CourseSummary[]> {
 		)
 		SELECT c.id, c.title, c.cover_path, c.created_at, c.archived_at,
 			COALESCE(t.total_lessons, 0) AS total_lessons,
+			t.duration_seconds,
 			COALESCE(t.completed_lessons, 0) AS completed_lessons,
 			t.last_watched_at, r.id AS resume_lesson_id, r.title AS resume_lesson_title
 		FROM courses c LEFT JOIN totals t ON t.course_id = c.id

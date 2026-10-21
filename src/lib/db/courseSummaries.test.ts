@@ -28,6 +28,31 @@ beforeEach(() => {
 afterEach(() => sqlite.close());
 
 describe("course summaries with actual SQLite", () => {
+	it("sums cached durations in the existing Library query only when every active lesson is known", async () => {
+		sqlite.exec("UPDATE lessons SET duration_seconds=60 WHERE id=1");
+		expect((await listCourseSummaries())[0].duration_seconds).toBeNull();
+		sqlite.exec(
+			"UPDATE lessons SET duration_seconds=3600 WHERE id=2; UPDATE lessons SET duration_seconds=120 WHERE id=3",
+		);
+		select.mockClear();
+		expect((await listCourseSummaries())[0].duration_seconds).toBe(3780);
+		expect(select).toHaveBeenCalledTimes(1);
+		// Cached values survive subsequent queries; nothing is recalculated from media.
+		expect((await listCourseSummaries())[0].duration_seconds).toBe(3780);
+		expect((await listCourseSummaries())[1].duration_seconds).toBeNull();
+		sqlite.exec("UPDATE lessons SET missing_at=CURRENT_TIMESTAMP WHERE id=2");
+		expect((await listCourseSummaries())[0].duration_seconds).toBe(180);
+	});
+	it.each([0, -1, Infinity])(
+		"does not advertise a complete duration with an invalid %s cache entry",
+		async (seconds) => {
+			sqlite.exec("UPDATE lessons SET duration_seconds=60");
+			sqlite
+				.prepare("UPDATE lessons SET duration_seconds=? WHERE id=1")
+				.run(seconds);
+			expect((await listCourseSummaries())[0].duration_seconds).toBeNull();
+		},
+	);
 	it("resumes the most recently watched incomplete lesson in one query", async () => {
 		const rows = await listCourseSummaries();
 		expect(rows[0]).toMatchObject({

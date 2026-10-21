@@ -23,12 +23,14 @@ export function sectionTime(
 		lessons.some((row) => !validDuration(row.duration_seconds))
 	)
 		return "—";
-	const minutes = Math.max(
-		1,
-		Math.round(
-			lessons.reduce((sum, row) => sum + (row.duration_seconds ?? 0), 0) / 60,
-		),
+	return totalTime(
+		lessons.reduce((sum, row) => sum + (row.duration_seconds ?? 0), 0),
 	);
+}
+
+export function totalTime(seconds: number | null | undefined): string {
+	if (!validDuration(seconds)) return "—";
+	const minutes = Math.max(1, Math.round(seconds / 60));
 	return minutes >= 60
 		? `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`
 		: `${minutes} min`;
@@ -71,11 +73,13 @@ export function readVideoDuration(
 	});
 }
 
-export async function discoverDurations(
-	lessons: readonly OutlineLesson[],
+export async function discoverDurations<
+	T extends { duration_seconds?: number | null },
+>(
+	lessons: readonly T[],
 	signal: AbortSignal,
-	read: (lesson: OutlineLesson) => Promise<number | null>,
-	save: (lesson: OutlineLesson, seconds: number) => Promise<void>,
+	read: (lesson: T) => Promise<number | null>,
+	save: (lesson: T, seconds: number) => Promise<void>,
 ): Promise<void> {
 	const pending = lessons.filter((row) => !validDuration(row.duration_seconds));
 	let index = 0;

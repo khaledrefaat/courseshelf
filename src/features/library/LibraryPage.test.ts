@@ -14,6 +14,7 @@ const course: CourseSummary = {
 	created_at: "2026-10-17 10:00:00",
 	archived_at: null,
 	total_lessons: 4,
+	duration_seconds: 15120,
 	completed_lessons: 1,
 	last_watched_at: "2026-10-17 10:00:00",
 	resume_lesson_id: 2,
@@ -21,6 +22,8 @@ const course: CourseSummary = {
 };
 beforeEach(() => {
 	vi.mocked(useLibrary).mockReturnValue({
+		loadedRevision: 1,
+		updateDuration: vi.fn(),
 		courses: [course],
 		error: null,
 		registrationError: null,
@@ -40,11 +43,29 @@ it("links Resume and cards to their placeholder routes", () => {
 	expect(html).toContain('href="/course/1"');
 	expect(html).toContain("Indexes");
 	expect(html).toContain("25%");
+	expect(html).toContain("Total course duration:");
+	expect(html).toContain("4h 12m");
+});
+it("shows an honest dash instead of a partial course duration", () => {
+	vi.mocked(useLibrary).mockReturnValue({
+		courses: [{ ...course, duration_seconds: null }],
+		loadedRevision: 1,
+		updateDuration: vi.fn(),
+		error: null,
+		registrationError: null,
+		registrations: new Map(),
+	});
+	const html = render();
+	expect(html).toContain("Total course duration:");
+	expect(html).toContain("—");
+	expect(html).toContain("until all lesson durations are known");
 });
 it.each(["unauthorized", "missing"] as const)(
 	"disables Resume and shows a %s folder warning",
 	(status) => {
 		vi.mocked(useLibrary).mockReturnValue({
+			loadedRevision: 1,
+			updateDuration: vi.fn(),
 			courses: [course],
 			error: null,
 			registrationError: null,
@@ -76,6 +97,8 @@ it("keeps archived courses off the shelf and on their own tab", () => {
 				archived_at: "2026-10-18 09:00:00",
 			},
 		],
+		loadedRevision: 1,
+		updateDuration: vi.fn(),
 		error: null,
 		registrationError: null,
 		registrations: new Map(),
@@ -89,6 +112,8 @@ it("keeps archived courses off the shelf and on their own tab", () => {
 it("shows the empty shelf only for an empty database", () => {
 	vi.mocked(useLibrary).mockReturnValue({
 		courses: [],
+		loadedRevision: 1,
+		updateDuration: vi.fn(),
 		error: null,
 		registrationError: null,
 		registrations: new Map(),
@@ -102,6 +127,8 @@ it("does not confuse a load failure with an empty database", () => {
 	vi.mocked(useLibrary).mockReturnValue({
 		courses: null,
 		error: "Database unavailable",
+		loadedRevision: 1,
+		updateDuration: vi.fn(),
 		registrationError: null,
 		registrations: new Map(),
 	});
@@ -112,6 +139,8 @@ it("shows a skeleton with a hidden loading status while courses load", () => {
 	vi.mocked(useLibrary).mockReturnValue({
 		courses: null,
 		error: null,
+		loadedRevision: 0,
+		updateDuration: vi.fn(),
 		registrationError: null,
 		registrations: new Map(),
 	});

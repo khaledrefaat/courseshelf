@@ -16,6 +16,7 @@ const fresh: CourseSummary = {
 	created_at: "2026-10-15 10:00:00",
 	archived_at: null,
 	total_lessons: 3,
+	duration_seconds: null,
 	completed_lessons: 0,
 	last_watched_at: null,
 	resume_lesson_id: 1,
@@ -102,7 +103,7 @@ describe("library pure functions", () => {
 	it("creates stable gradients and short first-word labels", () => {
 		expect(coverGradient(1)).toBe(coverGradient(9));
 		expect(coverGradient(1)).not.toBe(coverGradient(2));
-		expect(coverLabel("  PostgreSQL from Scratch")).toBe("Postgr");
-		expect(coverLabel("العربية درس")).toBe("العربي");
+		expect(coverLabel("  PostgreSQL from Scratch")).toBe("Postgre");
+		expect(coverLabel("العربية درس")).toBe("العربية");
 	});
 });

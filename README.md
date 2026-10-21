@@ -119,6 +119,13 @@ compatible work can be reused under your confirmation; uncertain/malformed check
 need individual attention. There are no automatic retries. Restarting never resumes
 spending: preview again to skip completed lessons and reuse safe partial work.
 
+Received AI responses that fail validation are listed separately as retryable failures.
+Select **Retry failed lessons only**, review the retained sections and new-request limit,
+then confirm uploads/credit use and click **Retry failed lessons**. Recovery keeps valid
+sections before the failure and preserves original checkpoints until cards are saved.
+Saved sets are never replaced; unknown request outcomes and corrupt/changed checkpoints
+still need individual attention. New requests may spend credits again.
+
 Long lessons are split into bounded sections before whole-lesson selection, rather
 than always producing seven cards. Fewer or zero cards is valid when little is taught.
 New generation favors clear concept explanations over demo trivia or repetitive
@@ -137,6 +144,15 @@ flashcards and cited excerpts are included in database backups; private partial
 checkpoints are not. Back up the existing database before first running this build
 (migrations 0006–0007). Migration 0007 preserves existing cards while expanding the
 AI-context limit. Published installer links and release versions are unchanged.
+
+## Course durations (unreleased source feature)
+
+Current source builds show total course length on Library cards, such as `4h 12m`.
+Lesson durations are cached in SQLite and reused on later visits and restarts.
+Unknown durations are read quietly for the currently filtered courses, at most two
+metadata reads at once, without playing videos or changing progress. A dash means
+some durations are still unknown or unavailable. Successful rescans invalidate the
+cache so changed lessons are measured again. No extra tool or download is required.
 
 ## Subtitles
 

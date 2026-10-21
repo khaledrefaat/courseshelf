@@ -55,6 +55,69 @@ pub fn lesson_dir(root: &Path, course: i64, lesson: i64) -> Result<PathBuf, Stri
     )
 }
 
+// At most two bounded retry slots. Root responses remain untouched until a
+// successful publication or an explicit discard. The pointer publishes LAST.
+pub fn active_dir(base: &Path) -> Result<PathBuf, String> {
+    let pointer = base.join("active.json");
+    match fs::symlink_metadata(&pointer) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(base.to_path_buf()),
+        Err(_) => return Err("Could not inspect recovery pointer.".into()),
+    }
+    let slot: String =
+        serde_json::from_slice(&read(&pointer, 128)?).map_err(|_| "Invalid recovery pointer.")?;
+    if !matches!(slot.as_str(), "retry-a" | "retry-b") {
+        return Err("Invalid recovery slot.".into());
+    }
+    let path = base.join(&slot);
+    let meta = fs::symlink_metadata(&path).map_err(|_| "Recovery slot is missing.")?;
+    if !meta.is_dir()
+        || crate::fs_links::is_link(&meta)
+        || fs::canonicalize(&path).ok().as_ref() != Some(&path)
+    {
+        return Err("Unsafe recovery slot.".into());
+    }
+    Ok(path)
+}
+
+pub fn recover(
+    base: &Path,
+    expected: &Checkpoint,
+    keep: usize,
+) -> Result<(PathBuf, Checkpoint), String> {
+    let active = active_dir(base)?;
+    let original = load(&active)?.ok_or("No checkpoint to recover.")?;
+    if !original.resumable()
+        || keep >= original.requests.len()
+        || serde_json::to_vec(&original).ok() != serde_json::to_vec(expected).ok()
+    {
+        return Err(
+            "Checkpoint changed or has an uncertain request. Preview again; nothing sent.".into(),
+        );
+    }
+    let replies = replies(&active, &original)?;
+    let slot = if active.file_name().is_some_and(|name| name == "retry-a") {
+        "retry-b"
+    } else {
+        "retry-a"
+    };
+    let target = directory(base, slot)?;
+    clear_files(&target)?;
+    let mut checkpoint = original;
+    checkpoint.id = random_id()?;
+    checkpoint.requests.truncate(keep);
+    for (index, reply) in replies.iter().take(keep).enumerate() {
+        checkpoint.requests[index].hash = Some(save_reply(&target, index, reply)?);
+    }
+    save(&target, &checkpoint)?;
+    write(
+        &base.join("active.json"),
+        &serde_json::to_vec(slot).map_err(|_| "Could not encode recovery pointer.")?,
+        true,
+    )?;
+    Ok((target, checkpoint))
+}
+
 fn regular(path: &Path, limit: u64) -> Result<(), String> {
     let meta =
         fs::symlink_metadata(path).map_err(|_| "Checkpoint file is missing or unreadable.")?;
@@ -193,7 +256,7 @@ fn owned_file(name: &str) -> bool {
         || name.strip_prefix("tmp-").is_some_and(super::valid_id)
 }
 
-pub fn clear(dir: &Path) -> Result<(), String> {
+fn clear_files(dir: &Path) -> Result<(), String> {
     // Inspect everything before deleting anything. Never recurse into unknown content.
     let entries: Vec<_> = fs::read_dir(dir)
         .map_err(|_| "Could not inspect checkpoint cleanup.")?
@@ -207,6 +270,62 @@ pub fn clear(dir: &Path) -> Result<(), String> {
     }
     for entry in entries {
         fs::remove_file(entry.path()).map_err(|_| "Could not remove owned checkpoint file.")?;
+    }
+    Ok(())
+}
+
+pub fn clear(dir: &Path) -> Result<(), String> {
+    // Validate all content, including BOTH slots, before removing any file.
+    let entries = fs::read_dir(dir)
+        .map_err(|_| "Could not inspect checkpoint cleanup.")?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "Could not inspect checkpoint cleanup.")?;
+    let mut slots = Vec::new();
+    for entry in &entries {
+        let name = entry.file_name();
+        if matches!(name.to_str(), Some("retry-a" | "retry-b")) {
+            let path = entry.path();
+            let meta =
+                fs::symlink_metadata(&path).map_err(|_| "Could not inspect recovery slot.")?;
+            if !meta.is_dir()
+                || crate::fs_links::is_link(&meta)
+                || fs::canonicalize(&path).ok().as_ref() != Some(&path)
+            {
+                return Err("Unsafe recovery slot left untouched.".into());
+            }
+            for child in fs::read_dir(&path).map_err(|_| "Could not inspect recovery slot.")? {
+                let child = child.map_err(|_| "Could not inspect recovery file.")?;
+                if !child.file_name().to_str().is_some_and(owned_file) {
+                    return Err("Unknown recovery content was left untouched.".into());
+                }
+                regular(&child.path(), MAX_REPLY)?;
+            }
+            slots.push(path);
+        } else {
+            if name != "active.json" && !name.to_str().is_some_and(owned_file) {
+                return Err("Unknown checkpoint content was left untouched.".into());
+            }
+            regular(&entry.path(), MAX_REPLY)?;
+        }
+    }
+    for slot in slots {
+        clear_files(&slot)?;
+        fs::remove_dir(slot).map_err(|_| "Could not remove recovery slot.")?;
+    }
+    for entry in entries {
+        if !matches!(
+            entry.file_name().to_str(),
+            Some("active.json" | "retry-a" | "retry-b")
+        ) {
+            fs::remove_file(entry.path()).map_err(|_| "Could not remove checkpoint file.")?;
+        }
+    }
+    let pointer = dir.join("active.json");
+    if pointer
+        .try_exists()
+        .map_err(|_| "Could not inspect recovery pointer.")?
+    {
+        fs::remove_file(pointer).map_err(|_| "Could not remove recovery pointer.")?;
     }
     Ok(())
 }

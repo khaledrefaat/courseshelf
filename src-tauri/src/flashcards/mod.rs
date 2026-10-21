@@ -163,11 +163,40 @@ struct Prepared {
     lesson: Lesson,
     source: Source,
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Recovery {
+    checkpoint: Checkpoint,
+    keep: usize,
+}
+
+fn recover_checkpoint(
+    base: &Path,
+    lesson: &Lesson,
+    source: &Source,
+    sections: &[Bounds],
+    retry: &Recovery,
+) -> Result<(PathBuf, Checkpoint), String> {
+    let expected = &retry.checkpoint;
+    expected.validate()?;
+    if expected.lesson.course_id != lesson.course_id
+        || expected.lesson.lesson_id != lesson.lesson_id
+        || expected.lesson.relative_path != lesson.relative_path
+        || expected.source_hash != source.source_hash
+        || expected.source_fingerprint != source.source_fingerprint
+        || expected.sections != sections
+    {
+        return Err("Recovery source changed. Preview again; nothing sent.".into());
+    }
+    storage::recover(base, expected, retry.keep)
+}
 struct Job {
     id: String,
     lesson: Lesson,
     source: Source,
     directory: PathBuf,
+    base_directory: PathBuf,
     checkpoint: Mutex<Checkpoint>,
     cancelled: AtomicBool,
     in_flight: AtomicBool,
@@ -321,7 +350,8 @@ pub async fn flashcards_prepare(
     let (resume, checkpoint_error) = if inspect_checkpoint {
         tauri::async_runtime::spawn_blocking(move || {
             let result = (|| {
-                let dir = storage::lesson_dir(&data, identity.course_id, identity.lesson_id)?;
+                let base = storage::lesson_dir(&data, identity.course_id, identity.lesson_id)?;
+                let dir = storage::active_dir(&base)?;
                 storage::load(&dir)?
                     .map(|checkpoint| {
                         let replies = storage::replies(&dir, &checkpoint)?;
@@ -377,6 +407,7 @@ pub async fn flashcards_begin(
     prepared_id: String,
     sections: Vec<Bounds>,
     resume: bool,
+    retry: Option<Recovery>,
 ) -> Result<String, String> {
     main(&window)?;
     if !valid_bounds(&sections) {
@@ -413,13 +444,20 @@ pub async fn flashcards_begin(
     let data = root(&app)?;
     let identity = lesson.clone();
     let original = source.clone();
-    let (directory, checkpoint) =
+    let (base_directory, directory, checkpoint) =
         tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
-            let dir = storage::lesson_dir(&data, identity.course_id, identity.lesson_id)?;
-            let checkpoint = if resume {
-                resume_checkpoint(&dir, &identity, &original, &sections)?
+            let base = storage::lesson_dir(&data, identity.course_id, identity.lesson_id)?;
+            let dir = storage::active_dir(&base)?;
+            let (directory, checkpoint) = if let Some(retry) = retry {
+                if !resume {
+                    return Err("Recovery requires an explicit checkpoint resume.".into());
+                }
+                recover_checkpoint(&base, &identity, &original, &sections, &retry)?
+            } else if resume {
+                let checkpoint = resume_checkpoint(&dir, &identity, &original, &sections)?;
+                (dir, checkpoint)
             } else {
-                storage::clear(&dir)?;
+                storage::clear(&base)?;
                 let saved = Checkpoint {
                     version: 1,
                     id: storage::random_id()?,
@@ -432,10 +470,10 @@ pub async fn flashcards_begin(
                     sections,
                     requests: Vec::new(),
                 };
-                storage::save(&dir, &saved)?;
-                saved
+                storage::save(&base, &saved)?;
+                (base.clone(), saved)
             };
-            Ok((dir, checkpoint))
+            Ok((base, directory, checkpoint))
         })
         .await
         .map_err(|_| "Could not initialize flashcard checkpoint.")??;
@@ -448,6 +486,7 @@ pub async fn flashcards_begin(
         lesson,
         source,
         directory,
+        base_directory,
         checkpoint: Mutex::new(checkpoint),
         cancelled: AtomicBool::new(false),
         in_flight: AtomicBool::new(false),
@@ -587,7 +626,7 @@ pub async fn flashcards_finish(
     }
     job.cancel();
     let result = if saved {
-        let dir = job.directory.clone();
+        let dir = job.base_directory.clone();
         tauri::async_runtime::spawn_blocking(move || storage::clear(&dir))
             .await
             .map_err(|_| "Cards saved, but checkpoint cleanup failed.".to_owned())?

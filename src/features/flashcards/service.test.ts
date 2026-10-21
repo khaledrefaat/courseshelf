@@ -17,8 +17,12 @@ import {
 	saveFlashcards,
 } from "@/lib/db/flashcards";
 import { listByCourse } from "@/lib/db/lessons";
-import { MODEL } from "@/lib/flashcards/core";
-import type { Preparation, Reply } from "@/lib/flashcards/pipeline";
+import {
+	MODEL,
+	PROMPT_VERSION,
+	VALIDATOR_VERSION,
+} from "@/lib/flashcards/core";
+import { type Preparation, plan, type Reply } from "@/lib/flashcards/pipeline";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@/lib/db/flashcards", () => ({
@@ -111,6 +115,81 @@ function courseFixture() {
 		() => {},
 	);
 }
+
+it("retries a failed course response only after explicit recovery, binds the native checkpoint and uses missing-only publication", async () => {
+	const prepared = structuredClone(preparation);
+	prepared.resume = {
+		resumable: true,
+		replies: [{ ...reply, content: "{}" }],
+		checkpoint: {
+			version: 1,
+			id: "d".repeat(64),
+			lesson: identity,
+			sourceHash: prepared.source.sourceHash,
+			sourceFingerprint: prepared.source.sourceFingerprint,
+			model: MODEL,
+			promptVersion: PROMPT_VERSION,
+			validatorVersion: VALIDATOR_VERSION,
+			sections: plan(prepared.source).bounds,
+			requests: [
+				{ stage: "section-1", status: "received", hash: "e".repeat(64) },
+			],
+		},
+	};
+	courseFixture();
+	vi.mocked(listByCourse).mockResolvedValue([
+		{
+			id: 2,
+			course_id: 1,
+			title: "Failed lesson",
+			relative_path: "lesson.mp4",
+			sort_order: 1,
+			created_at: "created",
+			missing_at: null,
+		},
+	]);
+	vi.mocked(flashcardLesson).mockResolvedValue(identity);
+	vi.mocked(invoke).mockImplementation(async (command) => {
+		if (command === "flashcards_prepare") return structuredClone(prepared);
+		if (command === "flashcards_begin") return "retry-job";
+		if (command === "flashcards_request") return reply;
+	});
+	const preview = await courseFlashcards.prepare(
+		1,
+		"Course",
+		new AbortController().signal,
+		() => {},
+	);
+	expect(preview.items[0].status).toBe("retry");
+	expect(invoke).not.toHaveBeenCalledWith(
+		"flashcards_begin",
+		expect.anything(),
+	);
+	await courseFlashcards.start(preview);
+	expect(saveFlashcards).not.toHaveBeenCalled();
+	await courseFlashcards.start(preview, true);
+	expect(invoke).toHaveBeenCalledWith("flashcards_begin", {
+		preparedId: prepared.id,
+		sections: plan(prepared.source).bounds,
+		resume: true,
+		retry: { checkpoint: prepared.resume.checkpoint, keep: 0 },
+	});
+	expect(
+		vi
+			.mocked(invoke)
+			.mock.calls.filter(([command]) => command === "flashcards_request"),
+	).toHaveLength(1);
+	expect(vi.mocked(saveFlashcards).mock.calls[0][5]).toBe(true);
+	expect(courseFlashcards.getSnapshot()).toMatchObject({
+		excludedTokens: 15,
+		newTokens: 15,
+		reusedTokens: 0,
+	});
+	expect(invoke).toHaveBeenLastCalledWith("flashcards_finish", {
+		jobId: "retry-job",
+		saved: true,
+	});
+});
 
 it.each(["cancel", "forget", "management"])(
 	"holds the reservation between lessons and %s drains the whole course without starting another request",

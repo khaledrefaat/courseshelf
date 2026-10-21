@@ -75,6 +75,17 @@ export function CourseFlashcardStatus() {
 					: ""}
 				. Not a package-billing estimate.
 			</p>
+			{!!((queue.excludedTokens ?? 0) + (queue.excludedUnknownUsage ?? 0)) && (
+				<p className="text-xs text-muted-foreground">
+					Earlier responses excluded from recovery: {queue.excludedTokens ?? 0}{" "}
+					reported tokens
+					{queue.excludedUnknownUsage
+						? ` · ${queue.excludedUnknownUsage} with unknown usage`
+						: ""}
+					. These may already have consumed credits; they are not reused or
+					counted as new requests.
+				</p>
+			)}
 			{!!queue.errors.length && (
 				<details className="mt-1">
 					<summary className="cursor-pointer">

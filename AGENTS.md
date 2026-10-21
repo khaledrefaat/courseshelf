@@ -197,6 +197,13 @@ and the folder-tree sidebar.
 - Lesson durations are cached separately from progress. Background metadata reads use the existing
   playback server, never play or mark a lesson watched, and run at most two at a time on the course page.
   Successful rescans invalidate cached durations; unknown/partial section totals show a dash.
+- Library cards aggregate the same lesson duration cache in their summary query; no separate
+  course-duration table or migration. Show a total only when all non-missing lessons have valid
+  durations, otherwise a dash. The currently filtered grid fills only uncached metadata, one
+  course at a time and at most two reads across the grid (not per card), after initial paint.
+  Skip unregistered roots; abort on navigation/filter changes, hidden document and management.
+  Cached-total updates must not restart discovery or loop on unavailable media. Reuse revision-
+  guarded duration saves so rescan/relocation rejects stale reads; never touch progress/notes.
 - Position saves are throttled (5s, 1s minimum change) and serialized per lesson. Never save a
   position before the resume seek is confirmed. Saves never touch `completed`.
 - Auto-complete at 90% while playing, or on ended. Undo suppresses re-completion for that visit.
@@ -235,7 +242,7 @@ and the folder-tree sidebar.
   src/lib/flashcards (the CLI trial re-exports core.ts). Native video, subtitle
   transcription, progress and notes contracts remain unchanged.
 - Generation is explicit and sends transcript text to the fixed Z.ai HTTPS endpoint
-  using glm-5.3-flash. Do not auto-generate on ended, retry paid requests, change the
+  using glm-5.3-flash. Do not auto-generate on ended, automatically retry paid requests, change the
   model, or claim provider token counts equal package billing. No frontend HTTP
   grant, CSP change, SDK or model download. Rust disables redirects and retries,
   limits request/response sizes and time, and strips provider envelopes/reasoning.
@@ -260,6 +267,18 @@ and the folder-tree sidebar.
   checkpoints exclude keys and video, and use only known lesson-owned files/no links.
   Resume revalidates received responses before new API calls. Uncertain in-flight
   requests require explicit discard/start-over; never silently resend them.
+- Course preview separates received-but-invalid responses from blocked checkpoints.
+  Retry failed lessons only is explicit, separately confirmed upload/credit scope, never
+  automatic. Revalidate the entire checkpoint identity/source/version and response hashes;
+  reuse only the contiguous semantically validated prefix before the first failed stage.
+  Re-run that stage and dependent suffix within the new confirmed ceiling. Never relax cue
+  or schema validation. Started/uncertain, corrupt, changed-source and old-version work
+  remains blocked for individual attention. No saved set (including edits/empty sets) is replaced.
+  Native recovery preserves the root checkpoint, stages in two bounded no-link retry slots,
+  and publishes an exact-slot pointer last; failed staging leaves the active work unchanged.
+  Repeated explicit recoveries alternate slots. Cleanup/discard validates all known content
+  before deletion; successful publication clears root and slots. Retain cancellation,
+  close deadlines and separate new/reused/excluded-earlier token accounting; unknown is not zero.
 - Course batches have read-only cancellable preflight, explicit transcript-upload/credit
   consent and a confirmed ceiling on NEW requests. Hold only one source at a time;
   keep metadata, not transcripts/replies/native preparation IDs, in the course plan.

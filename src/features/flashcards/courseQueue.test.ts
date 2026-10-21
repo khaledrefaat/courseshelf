@@ -103,9 +103,13 @@ function fixture(count = 3) {
 			inFlight++;
 			peak = Math.max(peak, inFlight);
 			observer.check();
-			for (const reply of prepared.prepared.resume?.replies ?? [])
+			const replies = prepared.prepared.resume?.replies ?? [];
+			for (const reply of replies.slice(
+				0,
+				observer.retryKeep ?? replies.length,
+			))
 				observer.reply(reply.usage, true);
-			if (!prepared.prepared.resume) {
+			if (!prepared.prepared.resume || observer.retryKeep !== undefined) {
 				observer.request();
 				await Promise.resolve();
 				observer.check();
@@ -183,7 +187,7 @@ it("reuses fully received zero-card work without new requests and skips malforme
 	expect(plan.maximumRequests).toBe(0);
 	expect(plan.items.map((item) => item.status)).toEqual([
 		"ready",
-		"issue",
+		"retry",
 		"issue",
 		"issue",
 	]);
@@ -196,6 +200,111 @@ it("reuses fully received zero-card work without new requests and skips malforme
 		reusedTokens: 15,
 	});
 	expect(f.deps.generate).toHaveBeenCalledTimes(1);
+});
+it("requires explicit retry selection and generates only recoverable failed lessons, preserving saved sets", async () => {
+	const f = fixture(5);
+	for (const id of [1, 2, 3, 4])
+		checkpoint(f.sources.get(id) as PreparedLesson);
+	f.saved.set(1, input(1).prepared.source);
+	const failed = f.sources.get(2) as PreparedLesson;
+	const uncertain = f.sources.get(3) as PreparedLesson;
+	if (!failed.prepared.resume || !uncertain.prepared.resume)
+		throw new Error("fixture");
+	failed.prepared.resume.replies[0].content = "{}";
+	uncertain.prepared.resume.resumable = false;
+	const corrupt = f.sources.get(4) as PreparedLesson;
+	corrupt.prepared.checkpointError = "Unreadable checkpoint";
+	const plan = await f.preview();
+	expect(plan.items.map((item) => item.status)).toEqual([
+		"saved",
+		"retry",
+		"issue",
+		"issue",
+		"ready",
+	]);
+	expect(plan.retryMaximumRequests).toBe(2);
+	expect(f.deps.generate).not.toHaveBeenCalled();
+	await f.queue.start(plan, true);
+	expect(f.deps.generate).toHaveBeenCalledOnce();
+	expect(vi.mocked(f.deps.generate).mock.calls[0][0].identity.lessonId).toBe(2);
+	expect(vi.mocked(f.deps.generate).mock.calls[0][3].retryKeep).toBe(0);
+	expect(f.saved.has(5)).toBe(false);
+	expect(f.queue.getSnapshot()).toMatchObject({
+		generated: 1,
+		requests: 1,
+		excludedTokens: 15,
+		reusedTokens: 0,
+		maximumRequests: 2,
+	});
+});
+it.each(["source", "checkpoint", "uncertain"])(
+	"blocks changed %s before a confirmed retry",
+	async (change) => {
+		const f = fixture(1);
+		const item = f.sources.get(1) as PreparedLesson;
+		checkpoint(item);
+		if (!item.prepared.resume) throw new Error("fixture");
+		item.prepared.resume.replies[0].content = "{}";
+		const plan = await f.preview();
+		if (change === "source") item.prepared.source.sourceHash = "changed";
+		else if (change === "checkpoint")
+			item.prepared.resume.checkpoint.id = "changed";
+		else item.prepared.resume.resumable = false;
+		await f.queue.start(plan, true);
+		expect(f.deps.generate).not.toHaveBeenCalled();
+		expect(f.queue.getSnapshot()).toMatchObject({ failed: 1, requests: 0 });
+	},
+);
+it("enforces the confirmed request ceiling during explicit recovery, without automatic retries", async () => {
+	const f = fixture(1);
+	const item = f.sources.get(1) as PreparedLesson;
+	checkpoint(item);
+	if (!item.prepared.resume) throw new Error("fixture");
+	item.prepared.resume.replies[0].content = "{}";
+	const plan = await f.preview();
+	vi.mocked(f.deps.generate).mockImplementation(
+		async (_input, _resume, _owner, observer) => {
+			observer.request();
+			observer.request();
+			observer.request();
+		},
+	);
+	await f.queue.start(plan, true);
+	expect(f.deps.generate).toHaveBeenCalledOnce();
+	expect(f.queue.getSnapshot()).toMatchObject({
+		stopped: true,
+		failed: 1,
+		requests: 2,
+		maximumRequests: 2,
+		running: false,
+	});
+	expect(f.saved.size).toBe(0);
+});
+it("cancels explicit recovery between lessons and leaves later checkpoints unmodified", async () => {
+	const f = fixture(2);
+	for (const item of f.sources.values()) {
+		checkpoint(item);
+		if (!item.prepared.resume) throw new Error("fixture");
+		item.prepared.resume.replies[0].content = "{}";
+	}
+	const plan = await f.preview();
+	const before = structuredClone(f.sources.get(2));
+	vi.mocked(f.deps.generate).mockImplementation(
+		async (_input, _resume, _owner, observer) => {
+			void f.queue.cancel();
+			observer.check();
+		},
+	);
+	await f.queue.start(plan, true);
+	expect(f.deps.generate).toHaveBeenCalledOnce();
+	expect(f.queue.getSnapshot()).toMatchObject({
+		cancelled: true,
+		running: false,
+		requests: 0,
+		generated: 0,
+	});
+	expect(f.sources.get(2)).toEqual(before);
+	expect(f.deps.release).toHaveBeenCalledOnce();
 });
 it.each(["source", "checkpoint"])(
 	"never silently expands confirmed upload scope when %s changes",
