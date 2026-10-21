@@ -180,7 +180,7 @@ it("warns when a final selection omits a populated section without silently addi
 	expect((await saved(output ?? "", "cards.json")).cards).toHaveLength(1);
 	expect(fetcher).toHaveBeenCalledTimes(2);
 });
-it.each(["flashcards-trial-5", "flashcards-trial-7"])(
+it.each(["flashcards-trial-5", "flashcards-trial-7", "flashcards-trial-8"])(
 	"keeps %s CLI checkpoint responses compatible without relabeling old content",
 	async (version) => {
 		const f = await fixture(),
@@ -191,7 +191,7 @@ it.each(["flashcards-trial-5", "flashcards-trial-7"])(
 		);
 		const output = await runTrial([f.path, "--resume", f.run], fetcher);
 		const report = await saved(output ?? "", "report.json");
-		expect(report.version).toBe("flashcards-trial-8");
+		expect(report.version).toBe("flashcards-trial-9");
 		expect(report.reusedRequests[0].originalPromptVersion).toBe(version);
 		expect(fetcher).not.toHaveBeenCalled();
 	},

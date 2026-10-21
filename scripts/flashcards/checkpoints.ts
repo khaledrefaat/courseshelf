@@ -42,6 +42,7 @@ const versions = [
 	"flashcards-trial-5",
 	"flashcards-trial-6",
 	"flashcards-trial-7",
+	"flashcards-trial-8",
 	PROMPT_VERSION,
 ];
 function object(value: unknown): Record<string, unknown> {

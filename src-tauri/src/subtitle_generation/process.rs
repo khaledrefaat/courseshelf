@@ -214,6 +214,14 @@ pub fn transcribe(
     if !text.starts_with("WEBVTT") || !text.contains("-->") {
         return Err("No speech subtitles were generated.".into());
     }
+    cancelled(&job.cancel)?;
+    let normalized = super::timing::normalize(&text)?;
+    if normalized != text {
+        // Only this job's owned staging output is changed. The cached/exported
+        // file must be the same normalized content the frontend validates.
+        fs::write(&path, normalized)
+            .map_err(|_| "Could not normalize generated subtitle timing.")?;
+    }
     fs::remove_file(wav).map_err(|_| "Could not clean temporary audio.")?;
     Ok(path)
 }

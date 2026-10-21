@@ -6,7 +6,9 @@ import {
 	deduplicate,
 	extractionMessages,
 	MAX_CANDIDATES_PER_SECTION,
+	MAX_EVIDENCE_CUES,
 	MAX_EXTRA_CONTEXT_CHARACTERS,
+	MAX_OUTPUT_TOKENS,
 	MODEL,
 	PROMPT_VERSION,
 	sectionCoverage,
@@ -132,6 +134,10 @@ function parse(reply: Reply): unknown {
 		throw new Error(
 			"Provider returned a different model. Existing cards were kept.",
 		);
+	if (reply.finishReason === "length")
+		throw new Error(
+			`Provider output limit reached (${MAX_OUTPUT_TOKENS.toLocaleString("en-US")} tokens). The response is incomplete; retry requires explicit confirmation.`,
+		);
 	if (reply.finishReason !== "stop")
 		throw new Error(
 			"Provider returned incomplete output. Existing cards were kept.",
@@ -145,9 +151,46 @@ function parse(reply: Reply): unknown {
 	}
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+// A provider sometimes returns [189] instead of [{cueId: 189}]. Wrap only
+// safe integers, without coercion or ID remapping. Keep every other field and
+// entry for the strict validator, and never modify the checkpointed response.
+function normalizeNumericEvidence(value: unknown) {
+	let count = 0;
+	if (
+		!isRecord(value) ||
+		!Array.isArray(value.cards) ||
+		value.cards.length > MAX_CANDIDATES_PER_SECTION
+	)
+		return { value, count };
+	const cards = value.cards.map((card: unknown) => {
+		if (
+			!isRecord(card) ||
+			!Array.isArray(card.evidence) ||
+			card.evidence.length > MAX_EVIDENCE_CUES
+		)
+			return card;
+		const evidence = card.evidence.map((reference: unknown) => {
+			if (typeof reference !== "number" || !Number.isSafeInteger(reference))
+				return reference;
+			count++;
+			return { cueId: reference };
+		});
+		return { ...card, evidence };
+	});
+	return { value: { ...value, cards }, count };
+}
+
 function extraction(reply: Reply, cues: readonly Cue[], section: number) {
 	try {
-		return validateCards(parse(reply), cues, MAX_CANDIDATES_PER_SECTION);
+		const normalized = normalizeNumericEvidence(parse(reply));
+		return {
+			...validateCards(normalized.value, cues, MAX_CANDIDATES_PER_SECTION),
+			numericEvidenceReferences: normalized.count,
+		};
 	} catch (cause) {
 		throw new Error(
 			`Section ${section}: ${cause instanceof Error ? cause.message : "Invalid flashcard response."} No retry was sent; existing cards were kept.`,
@@ -242,6 +285,10 @@ export async function generate(
 		}
 		cards.push(...result.cards);
 		if (result.notes) notes.push(result.notes);
+		if (result.numericEvidenceReferences)
+			notes.push(
+				`Section ${index + 1}: normalized ${result.numericEvidenceReferences} numeric evidence references to cueId objects without changing IDs; original response retained.`,
+			);
 		if (result.normalizations.length)
 			notes.push(
 				`Section ${index + 1}: repeated valid cue references were collapsed after validation.`,

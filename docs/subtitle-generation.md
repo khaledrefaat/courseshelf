@@ -94,6 +94,15 @@ allowing regeneration. Course-folder writes happen only for the explicitly
 enabled sidecar export described above; single-lesson generation stays in app data.
 
 Output is limited to 2 MiB/10,000 cues by the existing subtitle reader/parser.
+New generation also checks timing before publication. Whisper can emit a text
+fragment whose start and end are equal. If that instant exactly matches the
+preceding cue's end (or, with no such preceding cue, the following cue's start),
+the fragment is merged into that neighboring cue. Words and valid timestamps are
+preserved; no arbitrary duration is invented. Reversed timestamps, invalid times
+and nonempty fragments with no matching neighbor still fail visibly.
+This applies only to new generated staging output, not user VTT/SRT files or
+existing caches. The corrected file is what gets validated, cached and optionally
+exported. Existing-sidecar priority and strict parsing remain unchanged.
 Temporary decoded audio is capped at 512 MiB (roughly 4.5 hours at 16 kHz mono
 16-bit PCM). Jobs time out after 24 hours; disk-full/unsupported audio fails visibly.
 

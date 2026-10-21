@@ -79,7 +79,7 @@ it("does not open review if fullscreen restoration fails", async () => {
 	expect(opened).not.toHaveBeenCalled();
 });
 
-it("90% completion alone never opens review; a real end opens review without auto-advance and shared flush saves normally", async () => {
+it("90% does not open review; closing genuine end review drains position, completion and notes before advance", async () => {
 	vi.useFakeTimers();
 	const video = Object.assign(new EventTarget(), {
 		currentTime: 0,
@@ -115,6 +115,11 @@ it("90% completion alone never opens review; a real end opens review without aut
 		onError: vi.fn(),
 	});
 	const unregister = registerProgressFlush(tracking.flush);
+	const unregisterNotes = registerProgressFlush(async () => {
+		await pending;
+		writes.push("notes");
+	});
+	let closeReview: (() => Promise<void>) | undefined;
 	const countdown = createAutoAdvance({
 		canAdvance: () => true,
 		beforeStart: async () => {},
@@ -126,7 +131,8 @@ it("90% completion alone never opens review; a real end opens review without aut
 		failed: vi.fn(),
 		review: {
 			canOpen: () => true,
-			open: async () => {
+			open: async (_current, closed) => {
+				closeReview = closed;
 				opened();
 			},
 		},
@@ -147,20 +153,23 @@ it("90% completion alone never opens review; a real end opens review without aut
 		expect(opened).toHaveBeenCalledOnce();
 		await vi.advanceTimersByTimeAsync(6000);
 		expect(writes).toEqual([]);
-		const flushed = flushPendingData();
+		if (!closeReview) throw new Error("Review did not open");
+		const flushed = closeReview();
 		await Promise.resolve();
 		expect(writes).toEqual([]);
 		release();
 		await flushed;
 		expect(writes).toContain("position:100");
 		expect(writes).toContain("complete");
-		expect(writes).not.toContain("timer advance");
+		expect(writes).toContain("notes");
+		expect(writes[writes.length - 1]).toBe("timer advance");
 	} finally {
 		release();
 		countdown.dispose();
 		video.removeEventListener("ended", ended);
 		tracking.dispose();
 		unregister();
+		unregisterNotes();
 		await flushPendingData();
 	}
 });

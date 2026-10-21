@@ -4,6 +4,7 @@ import {
 	MODEL,
 	PROMPT_VERSION,
 	VALIDATOR_VERSION,
+	validateCards,
 } from "@/lib/flashcards/core";
 import {
 	canResume,
@@ -15,6 +16,7 @@ import {
 	remainingRequests,
 	type Source,
 	validateEdit,
+	validateReceived,
 } from "@/lib/flashcards/pipeline";
 
 const source: Source = {
@@ -83,6 +85,96 @@ function received(replies: Reply[]) {
 	}));
 	return { ...prepared, resume: prepared.resume };
 }
+it("reuses numeric evidence without rewriting replies or sending requests", async () => {
+	const numeric = reply({ cards: [{ ...card(2), evidence: [2] }], notes: "" });
+	const prepared = received([section(1), numeric, selection]);
+	const before = structuredClone(prepared);
+	const ask = vi.fn();
+	expect(
+		inspectRecovery(prepared, prepared.resume.checkpoint.lesson),
+	).toBeNull();
+	expect(remainingRequests(source, [section(1), numeric])).toBe(1);
+	expect(remainingRequests(source, prepared.resume.replies)).toBe(0);
+	const result = await generate(source, prepared.resume.replies, ask, () => {});
+	expect(ask).not.toHaveBeenCalled();
+	expect(prepared).toEqual(before);
+	expect(result.cards[0]).toEqual({
+		question: "Question 2?",
+		answer: "Answer 2",
+		extraContext: null,
+		evidence: [
+			{
+				cueId: 2,
+				quote: "A base case terminates recursion.",
+				start: 1200,
+				end: 1210,
+			},
+		],
+	});
+	expect(result.notes).toContain(
+		"Section 2: normalized 1 numeric evidence references to cueId objects without changing IDs; original response retained.",
+	);
+	expect(result.usage.newRequests).toEqual([]);
+	expect(result.usage.reusedRequests).toEqual(
+		prepared.resume.replies.map((r) => r.usage),
+	);
+});
+it("normalizes fresh mixed evidence before validating and deduplicating all entries", async () => {
+	const value = {
+		cards: [{ ...card(1), evidence: [1, { cueId: 1 }] }],
+		notes: "",
+	};
+	// The core schema remains strict; only the in-app response boundary adapts shape.
+	expect(() => validateCards(value, plan(short).cues, 32)).toThrow(
+		"expected a JSON object",
+	);
+	const ask = vi.fn(async () => reply(value));
+	const result = await generate(short, [], ask, () => {});
+	expect(ask).toHaveBeenCalledOnce();
+	expect(result.cards[0].evidence).toHaveLength(1);
+	expect(result.notes).toEqual([
+		"Section 1: normalized 1 numeric evidence references to cueId objects without changing IDs; original response retained.",
+		"Section 1: repeated valid cue references were collapsed after validation.",
+	]);
+	expect(
+		(await generate(short, [section(1)], vi.fn(), () => {})).notes,
+	).toEqual([]);
+});
+it.each([
+	"2",
+	null,
+	[],
+	2.5,
+	Number.MAX_SAFE_INTEGER + 1,
+	-1,
+	0,
+	1,
+	253,
+	{ cueId: 2, quote: "unexpected" },
+])(
+	"does not repair invalid evidence beside numeric references: %j",
+	async (invalid) => {
+		const bad = reply({
+			cards: [{ ...card(2), evidence: [2, invalid] }],
+			notes: "",
+		});
+		const ask = vi.fn();
+		await expect(
+			generate(source, [section(1), bad], ask, () => {}),
+		).rejects.toThrow();
+		expect(ask).not.toHaveBeenCalled();
+	},
+);
+it("preserves schema and count limits when normalizing evidence", () => {
+	for (const value of [
+		{ cards: [{ ...card(1), evidence: Array(33).fill(1) }], notes: "" },
+		{ cards: Array(33).fill({ ...card(1), evidence: [1] }), notes: "" },
+		{ cards: [{ ...card(1), evidence: [1], unknown: true }], notes: "" },
+		{ cards: [{ ...card(1), evidence: [1] }], notes: "", unknown: true },
+	]) {
+		expect(() => validateReceived(short, [reply(value)])).toThrow();
+	}
+});
 it.each([
 	{
 		name: "extra evidence fields",
@@ -133,7 +225,12 @@ it("keeps all extraction responses when only selection failed", async () => {
 	expect(ask.mock.calls[0]?.[0]).toBe("selection");
 });
 it.each([
-	{ finishReason: "length", model: MODEL, expected: "incomplete output" },
+	{
+		finishReason: "length",
+		model: MODEL,
+		expected: "output limit reached (8,192 tokens)",
+	},
+	{ finishReason: "unknown", model: MODEL, expected: "incomplete output" },
 	{ finishReason: "stop", model: "other-model", expected: "different model" },
 ])(
 	"distinguishes $expected and offers received-only recovery",
@@ -148,6 +245,34 @@ it.each([
 		);
 	},
 );
+it.each([`{"cards":[${"\n".repeat(38_445)}`, section(1).content])(
+	"rejects token-limited cached output even if it resembles complete JSON",
+	async (content) => {
+		const cached = { ...section(1), content, finishReason: "length" };
+		const before = structuredClone(cached);
+		const ask = vi.fn();
+		await expect(generate(short, [cached], ask, () => {})).rejects.toThrow(
+			"Provider output limit reached (8,192 tokens)",
+		);
+		expect(ask).not.toHaveBeenCalled();
+		expect(cached).toEqual(before);
+	},
+);
+it("rejects fresh token-limited output without another request", async () => {
+	const ask = vi.fn(async () => ({ ...section(1), finishReason: "length" }));
+	await expect(generate(short, [], ask, () => {})).rejects.toThrow(
+		"retry requires explicit confirmation",
+	);
+	expect(ask).toHaveBeenCalledOnce();
+});
+it("requires explicit start-over for prompt 8 native checkpoints", () => {
+	const prepared = received([section(1)]);
+	prepared.resume.checkpoint.promptVersion = "flashcards-trial-8";
+	expect(canResume(prepared, prepared.resume.checkpoint.lesson)).toBe(false);
+	expect(
+		inspectRecovery(prepared, prepared.resume.checkpoint.lesson),
+	).toBeNull();
+});
 it("does not recover uncertain, changed, corrupt or old-version checkpoints", () => {
 	for (const change of [
 		(p: ReturnType<typeof received>) => {

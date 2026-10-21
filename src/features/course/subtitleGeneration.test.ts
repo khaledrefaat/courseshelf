@@ -131,6 +131,41 @@ it("rolls back metadata and staged output when SQLite save fails", async () => {
 		keep: false,
 	});
 });
+it.each(["00:02.000 --> 00:02.000", "00:02.000 --> 00:01.000"])(
+	"still rejects invalid native output (%s) before cache publication",
+	async (timing) => {
+		await generation.startGeneration(1, 1, "one.mp4", false);
+		const native = vi.mocked(invoke).getMockImplementation();
+		vi.mocked(invoke).mockImplementation(async (command, args, options) =>
+			command === "validate_generated_subtitle_job"
+				? `WEBVTT\n\n${timing}\nInvalid output`
+				: native?.(command, args, options),
+		);
+		status.job = {
+			id: "job",
+			courseId: 1,
+			lessonId: 1,
+			stage: "Saving",
+			progress: null,
+			running: false,
+			result: row,
+			error: null,
+		};
+		await generation.pollGeneration();
+		expect(db.saveGeneratedSubtitle).not.toHaveBeenCalled();
+		expect(invoke).not.toHaveBeenCalledWith("finish_subtitle_generation", {
+			jobId: "job",
+			keep: true,
+		});
+		expect(invoke).toHaveBeenCalledWith("finish_subtitle_generation", {
+			jobId: "job",
+			keep: false,
+		});
+		await expect(generation.waitForGeneration("job")).rejects.toThrow(
+			"Subtitle cue ends before it starts",
+		);
+	},
+);
 it("restores previous metadata if committing the new subtitle file fails", async () => {
 	const previous = { ...row, filename: `1-${"b".repeat(64)}.en.vtt` };
 	vi.mocked(db.getGeneratedSubtitle).mockResolvedValue(previous);

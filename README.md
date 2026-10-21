@@ -104,8 +104,10 @@ open a lesson and use the **Flashcards** panel above notes:
 3. Flip through concept-focused question/answer cards, their transcript excerpts
    and separately labeled AI-added context. Saved cards work offline, with local editing/deletion.
 4. At lesson end, saved cards open automatically instead of the next-lesson countdown.
-   Use **Previous card** / **Next card** to review, and **Escape** to close. Continue
-   using the course page’s normal **Next** button when you choose.
+   Use **Previous card** / **Next card** to review. Closing this automatic review,
+   including with **Escape**, saves pending progress/notes and advances to the next
+   available lesson. Closing a manually opened review stays on the current lesson;
+   the final lesson stays put. Failed saves prevent automatic advancement.
    Lessons without cards keep the five-second countdown. Generation never runs automatically.
 
 For a whole course, choose **Manage → Generate course flashcards…**. The preview
@@ -144,6 +146,11 @@ flashcards and cited excerpts are included in database backups; private partial
 checkpoints are not. Back up the existing database before first running this build
 (migrations 0006–0007). Migration 0007 preserves existing cards while expanding the
 AI-context limit. Published installer links and release versions are unchanged.
+
+For contributors and future development sessions, [decision context](docs/decisions.md)
+records why the rendering, generation and build-space safeguards exist; [AGENTS.md](AGENTS.md)
+contains the working rules. The Electron experiment is parked on its separate branch,
+not part of the current Tauri source or published downloads.
 
 ## Course durations (unreleased source feature)
 

@@ -441,6 +441,10 @@ export async function runTrial(args: string[], fetcher: typeof fetch = fetch) {
 				throw new Error("API returned invalid choices.");
 			const choice = record(payload.choices[0]),
 				message = record(choice.message);
+			if (choice.finish_reason === "length")
+				throw new Error(
+					`Provider output limit reached (${MAX_OUTPUT_TOKENS.toLocaleString("en-US")} tokens); no cards accepted and no retry made.`,
+				);
 			if (
 				choice.finish_reason !== "stop" ||
 				typeof message.content !== "string"

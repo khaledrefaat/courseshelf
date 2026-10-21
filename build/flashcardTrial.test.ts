@@ -311,6 +311,30 @@ it("teaches named concepts with direct explanations and proactive in-scope examp
 		cues.map((cue) => ({ cueId: cue.id, text: cue.text })),
 	);
 });
+it("requests bounded compact output for extraction and selection without changing learning goals", async () => {
+	for (const messages of [
+		extractionMessages(cues, 7, cardRange(10)),
+		selectionMessages([card], cardRange(10), [cues]),
+	]) {
+		const system = messages[0].content;
+		for (const rule of [
+			"compact single-line JSON",
+			"whitespace before or after the object",
+			"stop immediately after the final closing brace",
+			"at most 300 characters",
+			"fewer complete, well-supported cards",
+			"do not shorten away essential qualifications",
+			"Actively use extraContext",
+		])
+			expect(system).toContain(rule);
+	}
+	expect(
+		await readFile(
+			new URL("../src-tauri/src/flashcards/mod.rs", import.meta.url),
+			"utf8",
+		),
+	).toContain('const PROMPT: &str = "flashcards-trial-9";');
+});
 it("allows a longer focused explanation but still bounds context and requires real cue references", () => {
 	const context = "x".repeat(MAX_EXTRA_CONTEXT_CHARACTERS);
 	const raw = { cards: [{ ...modelCard, extraContext: context }], notes: "" };
@@ -527,7 +551,7 @@ it("labels outside context in the review without attributing it to the instructo
 	const report = JSON.parse(
 		await readFile(join(output ?? "", "report.json"), "utf8"),
 	);
-	expect(report.version).toBe("flashcards-trial-8");
+	expect(report.version).toBe("flashcards-trial-9");
 	expect(report.contextPolicy).toContain("not independently verified");
 });
 
@@ -762,9 +786,12 @@ it.each([
 				notes: "",
 			}),
 		);
-	await expect(runTrial([path, "--send"], fetcher)).rejects.not.toThrow(
-		"fake-test-secret",
-	);
+	const attempt = runTrial([path, "--send"], fetcher);
+	await expect(attempt).rejects.not.toThrow("fake-test-secret");
+	if (kind === "incomplete")
+		await expect(attempt).rejects.toThrow(
+			"Provider output limit reached (8,192 tokens)",
+		);
 	expect(fetcher).toHaveBeenCalledOnce();
 	const output = String(logs.mock.calls[0][0]).split("\nOutput: ")[1];
 	const report = JSON.parse(

@@ -99,6 +99,7 @@ export async function recoverSingleSection(
 			"flashcards-trial-5",
 			"flashcards-trial-6",
 			"flashcards-trial-7",
+			"flashcards-trial-8",
 			PROMPT_VERSION,
 		].includes(String(report.version)) ||
 		report.mode !== "api" ||

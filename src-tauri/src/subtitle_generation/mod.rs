@@ -4,6 +4,7 @@ mod ffmpeg;
 mod model;
 mod paths;
 mod process;
+mod timing;
 
 use paths::*;
 use serde::{Deserialize, Serialize};

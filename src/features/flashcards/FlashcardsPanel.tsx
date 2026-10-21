@@ -56,6 +56,7 @@ export function FlashcardsPanel({
 	const [confirm, setConfirm] = useState(false),
 		[keyOpen, setKeyOpen] = useState(false);
 	const [review, setReview] = useState(false);
+	const reviewDismissed = useRef(false);
 	const mounted = useRef(true),
 		requested = useRef(reviewRequested);
 	const own =
@@ -168,9 +169,17 @@ export function FlashcardsPanel({
 		});
 	}
 	function closeReview() {
+		if (!review) return;
+		reviewDismissed.current = true;
 		setReview(false);
-		onReviewClosed();
 	}
+	// Notify only an explicit dismissal, after the dialog has left the DOM so it
+	// cannot trip the player's popup guard. Cleanup/management never dismisses it.
+	useEffect(() => {
+		if (review || !reviewDismissed.current) return;
+		reviewDismissed.current = false;
+		onReviewClosed();
+	}, [review, onReviewClosed]);
 	useEffect(() => {
 		if (disabled) setReview(false);
 	}, [disabled]);

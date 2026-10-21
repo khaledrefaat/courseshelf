@@ -35,9 +35,14 @@ these changes only after the new set is fully validated and saved.
 
 At a genuine played lesson's end, available saved cards open automatically instead
 of starting the five-second countdown. The existing fullscreen restoration finishes
-before review opens. Escape closes review and stays on the ended lesson, without
-restarting the countdown or navigating automatically. Continue with the course page's
-normal Next button after closing review. Replay followed by another end can open review again; rerenders,
+before review opens. Explicitly closing this automatic review (including Escape)
+flushes pending progress and notes, then advances once to the next available lesson
+without another countdown. After the final lesson it stays put. A failed save keeps
+the current lesson and shows an error. Closing a manually opened review always stays
+on the current lesson. Cleanup, page exit and management closing the dialog never
+advance; replay/seek, errors, hiding the page, target changes or navigation cancel
+pending automatic advancement, including during saves.
+Replay followed by another end can open review again; rerenders,
 90% completion, manual completion and later generation/card loading do not open it.
 Hidden pages, seeking/errors, management and open dialogs/menus block automatic review.
 Lessons without ready saved cards keep the five-second countdown and Cancel (S).
@@ -69,7 +74,7 @@ recoverable failures, not other ready lessons or saved sets.
 
 Recovery retains the contiguous validated sections before the first failure and
 regenerates that stage and dependent later stages. A failed final selection reuses
-all valid extraction sections. No evidence is coerced or ignored to make invalid
+all valid extraction sections. No cue IDs are coerced, remapped or ignored to make invalid
 output pass. Original root checkpoints remain until successful publication or an
 explicit discard; staged retries use two bounded alternating owned slots and an
 atomic active-slot pointer. A failed/cancelled retry never triggers another retry.
@@ -147,7 +152,16 @@ locally. Timestamps stay local; the model sees only cueId/text entries and the
 allowed global IDs for that section. Out-of-section IDs are rejected, never guessed
 or converted from seconds. Coverage gaps and abbreviated selection previews are shown in notes.
 
-Prompt version 8 prioritizes understanding: name one concept in each self-contained
+The in-app response boundary accepts the provider's equivalent numeric evidence
+shape (`[189, 190]`) by losslessly wrapping safe integers as
+`[{"cueId":189}, {"cueId":190}]` before strict validation. Every ID must still belong
+to that section; strings, invalid entries, extra fields and count limits remain
+strict. This applies to fresh and cached responses, with the conversion count
+recorded in generation notes. Raw checkpoint responses and hashes remain unchanged;
+no API retry is sent to repair this shape. The core validator and CLI remain strict,
+and this shape adapter alone does not change prompt/validator versions.
+
+Prompt version 9 retains the concept-focused guidance: name one concept in each self-contained
 question, explain it in plain English, unpack essential jargon and give causal
 explanations instead of vague references or lists. Definitions, mechanisms, distinctions,
 when/why to use something and misconceptions take priority over demo names/workflow trivia.
@@ -168,6 +182,16 @@ shorter/null is appropriate when no clarification is needed. Validator 7 and the
 share this bound; question/answer/evidence/count limits are unchanged. No web lookup or
 independent fact-check is added. Richer text can use more tokens/time within the same
 8,192-output-token limit; incomplete output still stops without a paid automatic retry.
+Prompt 9 additionally requests compact single-line JSON, no padding/leading/trailing
+whitespace, an immediate stop after the final brace, and notes of at most 300
+characters (guidance only; the strict validator still allows 2,000). It favors fewer
+complete cards over running out of output space, without removing useful AI context
+or qualifications. Both extraction and selection use this guidance. A provider
+`length` finish reason shows **Provider output limit reached (8,192 tokens)** and
+rejects the entire response, even if its JSON appears complete. Other incomplete
+finish reasons remain errors. This reduces avoidable output waste but cannot
+guarantee the provider will comply; no limit increase, partial-JSON repair, automatic
+retry or additional API stage is introduced.
 
 Whole-lesson selection sees up to 480 characters of explicitly unverified AI context
 per candidate, so it can judge combined learning value rather than only terse answers.
@@ -204,7 +228,8 @@ a fully recorded response has uncertain usage and cannot be automatically resume
 You can explicitly discard/start over (which may repeat charges), or discard the
 checkpoint without generating anything. CLI trial outputs are not auto-imported.
 Native checkpoints from an older prompt version remain on disk but cannot be resumed
-under prompt 8/validator 7: discard/start over is explicit and may incur charges again. The CLI
+under prompt 9/validator 7 (including prompt 8 checkpoints): discard/start over is
+explicit and may incur charges again. Existing saved cards and edits remain unchanged. The CLI
 can still reuse compatible older responses after validation and records their original
 prompt versions; reused content is not retroactively made concept-focused.
 
@@ -277,7 +302,11 @@ For an explicitly approved paid manual test:
    one, restart and review offline without
    entering a key. Generate on a lesson with no transcript: it must explain the prerequisite.
 4. End a lesson with saved cards: review opens once with no countdown. Escape
-   must stay on that lesson. Previous/Next card must navigate cards only; first/last
+   must flush progress/notes and advance once, without another timer; after the final
+   lesson it stays put. Manually open Review cards and close it: stay on that lesson.
+   Navigation, replay/seek, hidden page, errors or management while review is open or
+   saves are pending must prevent stale advancement. A failed save must show an error
+   and stay put. Previous/Next card must navigate cards only; first/last
    navigation is disabled and no lesson-navigation/Hide buttons or flip hint appear. Test
    the final lesson, replay, long answers, reduced motion and both themes. Without
    cards the old countdown/Cancel (S) must still work; manual Review cancels even

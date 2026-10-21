@@ -98,6 +98,7 @@ describe("sidecar parsing", () => {
 		"WEBVTT\n\nno captions",
 		"00:60.000 --> 00:61.000\nBad",
 		"00:02.000 --> 00:01.000\nBad",
+		"00:02.000 --> 00:02.000\nZero-length sidecar remains invalid",
 		"00:00.000-->00:01.000\nBad",
 	])("rejects empty or malformed content: %s", (text) => {
 		expect(() => parseSubtitle(text)).toThrow();

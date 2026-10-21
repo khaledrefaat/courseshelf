@@ -32,7 +32,7 @@ export function createAutoAdvance(options: {
 	failed(): void;
 	review?: {
 		canOpen(): boolean;
-		open(current: () => boolean): Promise<void>;
+		open(current: () => boolean, closed: () => Promise<void>): Promise<void>;
 	};
 	now?: () => number;
 }) {
@@ -105,7 +105,7 @@ export function createAutoAdvance(options: {
 	async function ended() {
 		if (disposed || phase !== "idle") return;
 		// Choose once at the real ended event, never when availability later changes.
-		// Review owns this end even after dismissal; no timer runs underneath it.
+		// No timer runs under review. Only this end's explicit dismissal may advance.
 		if (options.review?.canOpen()) {
 			phase = "reviewing";
 			const ticket = ++generation;
@@ -115,6 +115,14 @@ export function createAutoAdvance(options: {
 						valid(ticket) &&
 						phase === "reviewing" &&
 						!!options.review?.canOpen(),
+					async () => {
+						if (!valid(ticket) || phase !== "reviewing") return;
+						if (!options.canAdvance()) {
+							cancel();
+							return;
+						}
+						await finish(ticket);
+					},
 				);
 			} catch {
 				fail(ticket);

@@ -18,7 +18,10 @@ export function useAutoAdvance(options: {
 	exitFullscreen(): Promise<void>;
 	bindCancel(cancel: () => boolean): () => void;
 	canReview(): boolean;
-	openReview(current: () => boolean): Promise<void>;
+	openReview(
+		current: () => boolean,
+		closed: () => Promise<void>,
+	): Promise<void>;
 }) {
 	const latest = useRef(options);
 	const controller = useRef<ReturnType<typeof createAutoAdvance> | null>(null);
@@ -51,7 +54,7 @@ export function useAutoAdvance(options: {
 			canAdvance: () => latest.current.nextId !== null && canEnd(),
 			review: {
 				canOpen: () => canEnd() && latest.current.canReview(),
-				open: (current) => latest.current.openReview(current),
+				open: (current, closed) => latest.current.openReview(current, closed),
 			},
 			async beforeStart() {
 				if (isNativeVideoFullscreen(video)) {

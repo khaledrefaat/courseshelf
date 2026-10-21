@@ -14,7 +14,7 @@ use std::{
 };
 use tauri::Manager;
 
-const PROMPT: &str = "flashcards-trial-8";
+const PROMPT: &str = "flashcards-trial-9";
 const VALIDATOR: &str = "flashcards-validator-7";
 
 #[derive(Clone, Serialize, Deserialize)]

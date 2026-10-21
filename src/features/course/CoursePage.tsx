@@ -74,6 +74,9 @@ function CourseContent({
 	currentLesson.current = lesson.id;
 	const reviewEpoch = useRef(0);
 	const reviewVisit = useRef(false);
+	const endedReviewClosed = useRef<(() => Promise<void>) | undefined>(
+		undefined,
+	);
 	const reviewBlocked = management.busy || management.selection !== null;
 	useLayoutEffect(() => {
 		void lesson.id;
@@ -82,6 +85,7 @@ function CourseContent({
 		return () => {
 			reviewVisit.current = false;
 			reviewEpoch.current++;
+			endedReviewClosed.current = undefined;
 		};
 	}, [lesson.id, reviewBlocked]);
 	const onAvailability = useCallback(
@@ -99,7 +103,11 @@ function CourseContent({
 		},
 		[controls.bindAutoAdvance],
 	);
-	const openReview = async (endedCurrent?: () => boolean) => {
+	const openReview = async (
+		endedCurrent?: () => boolean,
+		endedClosed?: () => Promise<void>,
+	) => {
+		endedReviewClosed.current = undefined;
 		const id = lesson.id;
 		const ticket = ++reviewEpoch.current;
 		const current = () =>
@@ -115,7 +123,10 @@ function CourseContent({
 			},
 			exitFullscreen: controls.exit,
 			current,
-			open: () => setReviewRequested((value) => value + 1),
+			open: () => {
+				endedReviewClosed.current = endedCurrent ? endedClosed : undefined;
+				setReviewRequested((value) => value + 1);
+			},
 		}).catch(() => {
 			if (current())
 				setReviewError(
@@ -294,8 +305,13 @@ function CourseContent({
 							reviewRequested={reviewRequested}
 							onReview={() => void openReview()}
 							onReviewClosed={() => {
+								if (!reviewVisit.current || currentLesson.current !== lesson.id)
+									return;
 								reviewEpoch.current++;
+								const closed = endedReviewClosed.current;
+								endedReviewClosed.current = undefined;
 								controls.focus();
+								void closed?.();
 							}}
 							onAvailability={onAvailability}
 							disabled={management.busy || management.selection !== null}

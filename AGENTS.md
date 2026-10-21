@@ -4,6 +4,19 @@ Personal desktop app (Ubuntu) to track progress through local video courses (mos
 Tauri 2 + React + TypeScript + Tailwind v4 + shadcn/ui (Base UI) + SQLite (tauri-plugin-sql).
 Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure, never v1 syntax.
 
+## Start here in a new chat
+
+- Read [decision context](docs/decisions.md) for the reasons behind the rendering,
+  subtitle, flashcard and disk-space rules. This file defines the working contracts;
+  the decision log explains them, and feature docs hold detailed acceptance checks.
+- `main` is the Tauri app. Electron work is parked on the `electron` branch; do not
+  restore its code/dependencies or resume migration unless explicitly requested.
+- Inspect the branch and working-tree diff first; never assume earlier chat work was
+  committed or is included in a published installer. Preserve unrelated pending changes.
+- When behavior changes, update the affected docs and rationale in the same task.
+  Keep secrets, transcripts, private course paths and volatile machine-state logs out
+  of tracked docs. Do not treat historical test results as checks run this turn.
+
 ## Commands
 - Dev: `pnpm tauri dev`
 - Typecheck: `pnpm typecheck` (frontend, Vite config and flashcard CLI)
@@ -19,6 +32,20 @@ Package manager: pnpm. Use Tauri 2 APIs only; check the current docs when unsure
   No local Windows toolchain is required for installation/testing. Windows runtime checks remain manual.
 - Toolchain: Node version in .nvmrc, pnpm version in package.json's packageManager.
 Run typecheck and lint before saying a task is done.
+For documentation-only work, check Markdown links and `git diff --check`; no dependency
+installation or Rust/build commands are needed. If installed frontend tools are used,
+report only the checks actually run. For code changes, the gates above still apply.
+
+## Local build space
+
+- Rust build artifacts have been deliberately cleaned to save disk space. Do not
+  automatically install toolchains, prepare helpers or run Cargo/Tauri for docs or
+  frontend-only work. Warn before native verification that rebuilds a cleaned cache;
+  if the user requests no Rust/rebuilds, leave it absent and report native checks deferred.
+- For an approved cleanup, resolve the exact build directory, check for active builds,
+  preserve any installers outside it in ignored `release-artifacts.local/` and verify
+  the copy before `cargo clean`. Do not delete app data, downloaded models/tools,
+  course files, helper resources or shared Cargo/toolchain caches as part of that task.
 
 ## Architecture
 - `src/` React frontend. `src-tauri/` Rust shell: keep it thin, prefer plugins over custom Rust.
@@ -96,6 +123,13 @@ and the folder-tree sidebar.
 ## Subtitles and generation
 - Existing matching VTT/SRT sidecars take priority over generated caches. Invalid or
   unreadable existing sidecars produce a visible error, never automatic replacement.
+- Only newly generated Whisper staging output receives timing normalization: merge a
+  zero-duration text fragment into a positive-duration adjacent cue sharing its exact
+  timestamp boundary (preceding end preferred, otherwise following start). Preserve words
+  and all valid timestamps; never invent durations, reverse times or silently drop text.
+  Empty zero-duration fragments may be omitted; unanchored/reversed/invalid cues still fail.
+  Normalize the staged file before frontend validation/cache/export so all consumers read
+  the same text. Existing sidecars/caches and the strict parser remain unchanged.
 - English generation uses bundled whisper.cpp and a pinned, downloaded FFmpeg executable from Rust,
   without a shell, uploads, frontend HTTP grants or arbitrary process arguments.
   Windows helpers use CREATE_NO_WINDOW. Never run helpers from PATH.
@@ -208,7 +242,12 @@ and the folder-tree sidebar.
   position before the resume seek is confirmed. Saves never touch `completed`.
 - Auto-complete at 90% while playing, or on ended. Undo suppresses re-completion for that visit.
 - On genuine played ended only, ready saved flashcards open review instead of a countdown.
-  Escape closes review and stays on the ended lesson; review never navigates lessons.
+  Explicitly closing an automatically opened end review (including Escape) flushes
+  pending progress/notes and advances once to the next available lesson, without
+  another countdown. Closing manual review stays on the current lesson; the final
+  lesson stays put. Cleanup/management/unmount is not dismissal. Cancel stale close
+  callbacks on replay/seek/error, hidden page, target changes and navigation, including
+  while flushing; failed saves keep the current lesson and show an error.
   No auto-generation, late auto-open after generation/loading, or opening at 90%/manual completion.
   Without ready cards, auto-advance to the next available lesson after a five-second countdown.
   Cancel (S) follows the usual shortcut guards. Flush pending writes before navigating; cancel
@@ -300,7 +339,7 @@ and the folder-tree sidebar.
   Schema/reference checks are not fact-checking. Added context is labeled separately;
   never invent unseen slides or imply web verification. Manual edits retain original
   evidence and are visibly marked. Regeneration warns that it replaces manual edits.
-- Prompt 8 teaches self-contained named concepts with plain-English causal explanations,
+- Prompt 9 retains self-contained named concepts with plain-English causal explanations,
   not instructor-specific code/workflow trivia or vague references. Avoid attribution
   boilerplate ("according to this course/instructor") while keeping actual tool/version/
   scenario conditions and trade-offs. Actively use labeled AI context for missing foundations,
@@ -311,6 +350,18 @@ and the folder-tree sidebar.
   it selects existing IDs and never rewrites cards. No extra API stage or token-cap increase.
   Extraction sends cueId/text and allowed global
   IDs only; times stay local. Reject bad references, never remap seconds or silently retry.
+  The in-app pipeline may losslessly wrap numeric safe-integer evidence entries as
+  cueId objects before strict validation; never coerce strings, drop invalid entries
+  or remap IDs. Record the count in generation notes, preserve raw checkpoint bytes/
+  hashes and validate every reference/field/count as before. Core/CLI schemas stay
+  strict; the response-shape adapter itself does not require a version change.
+  Prompt 9 requests compact single-line JSON, no leading/trailing whitespace,
+  immediate termination after the final brace, brief notes (300-character guidance)
+  and fewer complete cards instead of truncated output. Existing validator bounds,
+  model, decoding and 8,192-token cap stay unchanged. A length finish reason is a
+  visible output-limit failure, never accepted even with apparently complete JSON;
+  do not salvage partial output or automatically retry. Native prompt 8 checkpoints
+  require explicit discard/start-over; CLI compatible older-response provenance remains.
   Existing cards/edits stay unchanged; native older-prompt checkpoints need explicit discard,
   not silent upgrade/replay. The CLI retains validated older-response provenance on resume.
 - Review is an existing-component dialog, not a new player. Render ONE normal-orientation
@@ -326,8 +377,11 @@ and the folder-tree sidebar.
   and optional labeled AI-added context. Lesson evidence and editing stay in Details.
   Long content stays bounded.
   Real ended chooses review/countdown once, with cancellation guards through fullscreen exit.
-  Closing review never restarts a timer; replay can reset the end. Clicking manual Review cancels
+  Closing review never restarts a timer; only explicit dismissal of the current
+  automatic end review may advance after the shared write drain. Notify dismissal
+  after its dialog leaves the DOM; do not weaken the player's popup guards.
+  Replay can reset the end. Clicking manual Review cancels
   the countdown synchronously, awaits existing fullscreen exit, then opens only for
   the same lesson. Do not play/pause/seek/change completion. Keep Next and Cancel (S)
-  for lessons without cards; review navigates cards only, not lessons.
+  for lessons without cards; Previous/Next card navigate cards only.
   See docs/flashcards.md for limits, failure handling and acceptance checks.

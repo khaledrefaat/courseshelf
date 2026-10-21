@@ -106,7 +106,7 @@ it("saved review owns the end instead of starting a timer, including the final l
 		expect(f.options.beforeStart).not.toHaveBeenCalled();
 		expect(f.options.advance).not.toHaveBeenCalled();
 		expect(f.options.changed).not.toHaveBeenCalled();
-		// Hiding review does not restart a countdown; replay permits another end.
+		// Cancellation does not restart a countdown; replay permits another end.
 		controller.cancel();
 		await controller.ended();
 		expect(open).toHaveBeenCalledOnce();
@@ -115,6 +115,106 @@ it("saved review owns the end instead of starting a timer, including the final l
 		expect(open).toHaveBeenCalledTimes(2);
 		controller.dispose();
 	}
+});
+function reviewFixture() {
+	const f = fixture();
+	let close: (() => Promise<void>) | undefined;
+	const controller = createAutoAdvance({
+		...f.options,
+		review: {
+			canOpen: () => true,
+			open: async (_current, closed) => {
+				close = closed;
+			},
+		},
+	});
+	return {
+		...f,
+		controller,
+		close: () => {
+			if (!close) throw new Error("Review has not opened");
+			return close();
+		},
+	};
+}
+it("closing end review flushes saves then advances once without a countdown", async () => {
+	const f = reviewFixture(),
+		pending = deferred();
+	f.options.flush.mockReturnValue(pending.promise);
+	await f.controller.ended();
+	await vi.advanceTimersByTimeAsync(6000);
+	expect(f.options.flush).not.toHaveBeenCalled();
+	const closing = f.close();
+	await f.close();
+	expect(f.options.flush).toHaveBeenCalledOnce();
+	expect(f.options.advance).not.toHaveBeenCalled();
+	pending.resolve();
+	await closing;
+	await f.close();
+	await f.controller.ended();
+	expect(f.options.flush).toHaveBeenCalledBefore(f.options.advance);
+	expect(f.options.advance).toHaveBeenCalledOnce();
+	expect(f.options.beforeStart).not.toHaveBeenCalled();
+	expect(vi.getTimerCount()).toBe(0);
+});
+it("closing final-lesson review stays put without flushing or restarting a timer", async () => {
+	const f = reviewFixture();
+	f.options.canAdvance.mockReturnValue(false);
+	await f.controller.ended();
+	await f.close();
+	await f.controller.ended();
+	await vi.advanceTimersByTimeAsync(6000);
+	expect(f.options.flush).not.toHaveBeenCalled();
+	expect(f.options.advance).not.toHaveBeenCalled();
+});
+it.each(["cancel", "reset", "dispose", "blocked"] as const)(
+	"does not advance when review dismissal is invalidated by %s, including during saves",
+	async (action) => {
+		for (const flushing of [false, true]) {
+			const f = reviewFixture(),
+				pending = deferred();
+			f.options.flush.mockReturnValue(pending.promise);
+			await f.controller.ended();
+			const closing = flushing ? f.close() : Promise.resolve();
+			if (action === "blocked") f.options.canAdvance.mockReturnValue(false);
+			else f.controller[action]();
+			if (!flushing) await f.close();
+			pending.resolve();
+			await closing;
+			expect(f.options.advance).not.toHaveBeenCalled();
+			f.controller.dispose();
+		}
+	},
+);
+it("a failed review-close save keeps the lesson and reports an error without retry", async () => {
+	const f = reviewFixture();
+	f.options.flush.mockRejectedValue(new Error("Failed save"));
+	await f.controller.ended();
+	await f.close();
+	await f.close();
+	expect(f.options.advance).not.toHaveBeenCalled();
+	expect(f.options.flush).toHaveBeenCalledOnce();
+	expect(f.options.failed).toHaveBeenCalledOnce();
+});
+it("a stale review close cannot advance a later replay's review", async () => {
+	const f = fixture();
+	const closes: (() => Promise<void>)[] = [];
+	const controller = createAutoAdvance({
+		...f.options,
+		review: {
+			canOpen: () => true,
+			open: async (_current, closed) => {
+				closes.push(closed);
+			},
+		},
+	});
+	await controller.ended();
+	controller.reset();
+	await controller.ended();
+	await closes[0]();
+	expect(f.options.flush).not.toHaveBeenCalled();
+	await closes[1]();
+	expect(f.options.advance).toHaveBeenCalledOnce();
 });
 it.each(["replay", "hide", "unmount", "blocked"])(
 	"invalidates pending fullscreen-exit review on %s",

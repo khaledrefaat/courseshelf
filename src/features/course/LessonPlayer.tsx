@@ -47,7 +47,10 @@ export function LessonPlayer({
 	bindAutoAdvance: (cancel: () => boolean) => () => void;
 	reviewCount?: number;
 	onReview?: () => void;
-	onEndedReview: (current: () => boolean) => Promise<void>;
+	onEndedReview: (
+		current: () => boolean,
+		closed: () => Promise<void>,
+	) => Promise<void>;
 }) {
 	const [ended, setEnded] = useState(false);
 	const [source, setSource] = useState<string | null>(null);

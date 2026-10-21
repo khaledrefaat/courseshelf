@@ -2,7 +2,7 @@
 import { parseSubtitle } from "../../features/course/subtitleCues.ts";
 
 export const MODEL = "glm-5.3-flash";
-export const PROMPT_VERSION = "flashcards-trial-8";
+export const PROMPT_VERSION = "flashcards-trial-9";
 export const VALIDATOR_VERSION = "flashcards-validator-7";
 export const MAX_EXTRA_CONTEXT_CHARACTERS = 1200;
 export const MAX_OUTPUT_TOKENS = 8192;
@@ -154,7 +154,12 @@ Explain controlling a dependency's behavior and a small relevant example, not th
 Do not turn introductions, promotion, speaker biographies, vague course promises or repeated statements into cards.
 Do not force the suggested count: fewer cards, including zero, is correct when little was taught.
 Use concise plain text, no HTML or Markdown. References help auditing but do not prove correctness.
-Return only the requested JSON object.`;
+Return only the requested JSON object, serialized as compact single-line JSON.
+Do not pretty-print, indent, use code fences, or emit commentary or whitespace before or after the object.
+Close every array and object, then stop immediately after the final closing brace. Never pad output to fill a token budget.
+Keep notes brief: at most 300 characters, or an empty string when there is nothing useful to flag.
+Keep answers focused and extraContext useful but concise; do not shorten away essential qualifications or repeat explanations.
+Return fewer complete, well-supported cards rather than expanding text until the response is cut off.`;
 
 export function extractionMessages(
 	cues: readonly Cue[],
