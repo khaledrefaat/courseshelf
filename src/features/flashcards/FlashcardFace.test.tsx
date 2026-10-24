@@ -88,11 +88,19 @@ it("bounds content, keeps the popup transparent, and never depends on reversed 3
 	expect(css).toContain("animation: none");
 	expect(css).not.toMatch(/#[a-f\d]{3,8}\b/i);
 });
-it("keeps white review surfaces and contrasting text in both themes", () => {
+it("keeps light review surfaces white and follows the app palette in dark mode", () => {
 	const css = readFileSync(new URL("../../index.css", import.meta.url), "utf8");
 	expect(css).toContain("--review: #ffffff;");
 	expect(css).toContain("--review-foreground: #18181b;");
 	expect(css).toContain("--review-accent: #843b68;");
 	const dark = css.slice(css.indexOf(".dark {"), css.indexOf("@theme"));
-	expect(dark).not.toMatch(/--review(?:-[\w-]+)?:/);
+	expect(dark).toContain("--review: var(--card);");
+	expect(dark).toContain("--review-foreground: var(--card-foreground);");
+	expect(dark).toContain("--review-accent: var(--brand);");
+	expect(dark).toContain("--review-muted: var(--muted-foreground);");
+	expect(dark).toContain("--review-border: var(--border);");
+	expect(dark).toContain("--review-hover: var(--accent);");
+	expect(dark).toContain(
+		"--review-action-foreground: var(--brand-foreground);",
+	);
 });

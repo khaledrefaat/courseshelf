@@ -369,8 +369,8 @@ and the folder-tree sidebar.
   Do not restore stacked rotateY/backfaces: they painted mirrored text in the user's native app.
   Chromium-only preview checks do not establish real WebKitGTK rendering acceptance.
   Cancel flip timers on card/page cleanup; keep keyboard activation and reduced motion.
-  The popup frame is transparent; review tokens provide white surfaces, dark text and plum accents in both
-  themes. Regular Previous card / Next card floating buttons sit below the card,
+  The popup frame is transparent; review tokens provide white surfaces, dark text and plum accents in light
+  mode, and charcoal surfaces, cream text and pink accents in dark mode. Regular Previous card / Next card floating buttons sit below the card,
   with Details between them (below on narrow screens). No side arrows, Hide/Done,
   Next lesson or visible flip hint; Escape still closes the review. Disable navigation
   at the first/last card and during writes. The front contains only the question; the back shows the answer

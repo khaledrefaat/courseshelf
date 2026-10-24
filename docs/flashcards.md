@@ -20,7 +20,10 @@ The confirmation describes the transcript and a maximum request count. No accoun
 or key is required to read saved cards. Review shows one card at a time with a
 question first; click it or press Enter/Space on the focused card to flip it.
 Previous/Next card step through the entire saved set, starting each on its question.
-The card is white with dark text and plum accents in both themes, without an outer panel. It contains
+The card is white with dark text and plum accents in light mode, and charcoal with
+cream text and pink accents in dark mode, without an outer panel. The counter,
+navigation controls and Details panel follow the same theme, including live system
+theme changes. It contains
 only the question on the front; the back shows the answer and any saved AI-added
 context, labeled "AI-added context · Not independently verified". Regular **Previous card**
 and **Next card** floating buttons sit below the card, with **Details** between them

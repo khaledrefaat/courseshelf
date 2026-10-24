@@ -116,8 +116,10 @@ shared write-drain tests cover the state machine, but real native focus/fullscre
 behavior still needs manual verification.
 
 The single visible card face with positive 2D-scale animation is intentional:
-stacked `rotateY` backfaces painted mirrored English in the native app. White review
-surfaces with dark text/plum accents are intentional in both system themes. Evidence
+stacked `rotateY` backfaces painted mirrored English in the native app. Review
+surfaces follow the system theme to match the surrounding app: white with dark
+text/plum accents in light mode, charcoal with cream text/pink accents in dark mode.
+Shared review tokens keep cards, controls and Details consistent. Evidence
 and editing stay in Details; useful labeled AI context stays on the answer face.
 
 ## Disk space, privacy and verification

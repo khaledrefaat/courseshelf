@@ -40,7 +40,7 @@
 	--player: #191510;
 	--overlay: #0d0a07;
 	--player-foreground: #fffcf7;
-	/* Review keeps a white surface with dark text and plum accents in both themes. */
+	/* Review surfaces follow the system theme, with matching controls and details. */
 	--review: #ffffff;
 	--review-foreground: #18181b;
 	--review-muted: #62616b;
@@ -100,6 +100,15 @@
 	--brand: #d58ab7;
 	--brand-foreground: #291c24;
 	--brand-soft: #402f32;
+	--review: var(--card);
+	--review-foreground: var(--card-foreground);
+	--review-muted: var(--muted-foreground);
+	--review-border: var(--border);
+	--review-hover: var(--accent);
+	--review-accent: var(--brand);
+	--review-action-foreground: var(--brand-foreground);
+	--review-action-hover: #e5a2ca;
+	--review-shadow: rgb(13 10 7 / 0.45);
 	--countdown: rgb(35 35 38 / 0.7);
 	--countdown-foreground: #f2ece2;
 	--countdown-brand: #d58ab7;
