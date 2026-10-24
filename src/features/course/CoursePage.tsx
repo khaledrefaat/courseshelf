@@ -204,6 +204,8 @@ function CourseContent({
 						model={model}
 						lessonId={lesson.id}
 						onLessonSelect={focus}
+						onToggleCompletion={(id) => void toggleCompletion(id)}
+						saving={saving}
 					/>
 				</div>
 				<main

@@ -3,6 +3,7 @@ import {
 	focusPlayer,
 	playerShortcuts,
 	type ShortcutKey,
+	type ShortcutWheel,
 } from "@/features/course/playerShortcuts";
 
 function keyEvent(key: string, extra: Partial<ShortcutKey> = {}): ShortcutKey {
@@ -14,6 +15,20 @@ function keyEvent(key: string, extra: Partial<ShortcutKey> = {}): ShortcutKey {
 		ctrlKey: false,
 		altKey: false,
 		metaKey: false,
+		defaultPrevented: false,
+		preventDefault() {
+			this.defaultPrevented = true;
+		},
+		stopImmediatePropagation: vi.fn(),
+		...extra,
+	};
+}
+function wheelEvent(
+	deltaY: number,
+	extra: Partial<ShortcutWheel> = {},
+): ShortcutWheel {
+	return {
+		deltaY,
 		defaultPrevented: false,
 		preventDefault() {
 			this.defaultPrevented = true;
@@ -195,6 +210,50 @@ describe("player shortcuts", () => {
 		expect(f.video.volume).toBe(0);
 		f.controls.keydown(keyEvent("m"), allowed);
 		expect(f.video.muted).toBe(true);
+	});
+	it("uses the mouse wheel's direction for the same five-percent volume steps", () => {
+		const f = fixture();
+		f.video.muted = true;
+		const up = wheelEvent(-1);
+		f.controls.wheel(up);
+		expect(up.defaultPrevented).toBe(true);
+		expect(f.video.volume).toBe(0.75);
+		expect(f.video.muted).toBe(false);
+		expect(f.options.indicate).toHaveBeenLastCalledWith("Volume 75%");
+		f.video.volume = 0.05;
+		const down = wheelEvent(1);
+		f.controls.wheel(down);
+		expect(down.defaultPrevented).toBe(true);
+		expect(f.video.volume).toBe(0);
+	});
+	it("leaves scrolling and volume untouched outside fullscreen, including after exit", () => {
+		const f = fixture();
+		f.options.isFullscreen = () => false;
+		const normal = wheelEvent(-1);
+		f.controls.wheel(normal);
+		expect(f.video.volume).toBe(0.7);
+		expect(normal.defaultPrevented).toBe(false);
+		expect(normal.stopImmediatePropagation).not.toHaveBeenCalled();
+		f.options.isFullscreen = () => true;
+		f.controls.wheel(wheelEvent(-1));
+		expect(f.video.volume).toBe(0.75);
+		f.options.isFullscreen = () => false;
+		const afterExit = wheelEvent(1);
+		f.controls.wheel(afterExit);
+		expect(f.video.volume).toBe(0.75);
+		expect(afterExit.defaultPrevented).toBe(false);
+		expect(afterExit.stopImmediatePropagation).not.toHaveBeenCalled();
+	});
+	it("does not consume a zero, prevented, or non-finite wheel event", () => {
+		const f = fixture();
+		for (const event of [
+			wheelEvent(0),
+			wheelEvent(1, { defaultPrevented: true }),
+			wheelEvent(Number.NaN),
+		])
+			f.controls.wheel(event);
+		expect(f.video.volume).toBe(0.7);
+		expect(f.options.indicate).not.toHaveBeenCalled();
 	});
 	it.each([
 		["ArrowUp", 0.27, 0.3, 0.35],

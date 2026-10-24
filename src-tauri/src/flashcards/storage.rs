@@ -25,7 +25,9 @@ fn directory(parent: &Path, name: &str) -> Result<PathBuf, String> {
     let parent = fs::canonicalize(parent).map_err(|_| "App data is unavailable.")?;
     let path = parent.join(name);
     if !path.exists() {
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
         #[cfg(unix)]
         {
             use std::os::unix::fs::DirBuilderExt;

@@ -45,6 +45,12 @@ scrolling, paused/playing video, repeated seeks and native fullscreen before
 claiming a rendering change solves the problem. Keep localhost streaming, native
 controls, token/Host checks and CSP intact.
 
+Wheel volume is limited to hovering over the fullscreen player, using the existing
+fullscreen controller for wrapper, native and window fallback modes. Outside
+fullscreen, wheel events remain untouched so the course page scrolls normally. The
+video surface suppresses its focus outline while retaining focus and keyboard
+operation; other controls retain their focus indicators.
+
 See [renderer overrides](release.md#player-keyboard-and-fullscreen-checks). Platform
 tests must be identified explicitly: a browser test is not native WebKitGTK or
 Windows WebView2 acceptance.

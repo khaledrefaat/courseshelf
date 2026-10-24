@@ -125,8 +125,10 @@ Use disposable copies of course folders for missing-file/relocation checks.
 - Choose/edit/remove a cover; restart and confirm it loads. Removing a course must
   not touch original images or videos.
 - Fully quit/relaunch, then play a previously added course **without re-picking**.
-- Check native controls, scrubbing, keyboard seeks, saved positions, resume,
-  completion/undo, countdown and Cancel (S).
+- Check native controls, scrubbing, Arrow Up/Down and player-hover wheel volume,
+  keyboard seeks, saved positions, resume, completion/undo, countdown and Cancel
+  (S). Toggle a sidebar lesson's completion circle and confirm its title still
+  opens the lesson.
 - Check f/Escape and native fullscreen; restore the previous maximized/windowed
   layout without changing playback position.
 - Type Arabic/mixed notes, switch lessons quickly, restart and verify saved text.

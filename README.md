@@ -62,12 +62,14 @@ dependencies and may need internet access. Quit any running copy before updating
 - **Build your own shelf:** add folders of MP4, M4V and WebM lessons, with editable
   course titles and covers. Folder names become sections, with natural ordering.
 - **See your progress:** completed lessons, course percentages, status filters and
-  a Continue card make it easy to see what's started and what's finished.
+  a Continue card make it easy to see what's started and what's finished. Mark a
+  lesson complete or incomplete directly from its sidebar circle.
 - **Pick up where you stopped:** playback positions are saved automatically.
 - **Keep notes beside the lesson:** plain-text notes autosave, with an all-notes
   view for each course.
-- **Watch comfortably:** native video controls, keyboard shortcuts, fullscreen and
-  a five-second next-lesson countdown you can cancel with S.
+- **Watch comfortably:** native video controls, keyboard shortcuts, player-hover
+  mouse-wheel volume, fullscreen and a five-second next-lesson countdown you can
+  cancel with S.
 - **Watch with subtitles:** matching VTT/SRT files load automatically, with a
   remembered On/Off toggle. Generate English subtitles
   for a lesson or a whole course—see [subtitle generation](#generate-english-subtitles-031).

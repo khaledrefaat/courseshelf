@@ -230,11 +230,18 @@ must remain at the very start of main, not in setup or a parallel test.
 
 Before sharing a new build, check it in the real native app:
 
-- Native play/pause, scrubbing and volume; Left/Right seeks, saved positions and resume.
+- Native play/pause, scrubbing and volume; Arrow Up/Down and player-hover wheel
+  volume changes only in fullscreen (including window fallback). Outside fullscreen,
+  scrolling over the player scrolls normally without changing volume. Check no
+  colored focus outline surrounds the video after clicking or keyboard focus;
+  keyboard shortcuts and native controls remain usable. Left/Right seeks, saved
+  positions and resume.
 - One Space press toggles only once. Editing notes, IME, tabs, menus and dialogs
   must not trigger player shortcuts.
 - Completion at 90%, manual undo, end-of-lesson countdown and Cancel (S); the final
   lesson has no auto-advance. Pending saves settle before navigation.
+- Click a sidebar lesson's completion circle to mark it complete or incomplete;
+  clicking its title still opens that lesson.
 - f/Escape and the native fullscreen button; exiting restores layout, position and
   the previous window state, including maximization. Wrapper fullscreen is tried
   first, with a Tauri window fallback; Linux reads actual GTK state.

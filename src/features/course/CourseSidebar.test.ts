@@ -43,6 +43,7 @@ it("renders accessible ring, expanded current section and keyboard-operable curr
 				course,
 				model: buildOutline(lessons, 2),
 				lessonId: 2,
+				onToggleCompletion: () => {},
 			}),
 		),
 	);
@@ -55,5 +56,7 @@ it("renders accessible ring, expanded current section and keyboard-operable curr
 	expect(html).toContain('aria-current="page"');
 	expect(html).toContain('href="/course/1/lesson/2"');
 	expect(html).toContain("Nested / Section");
+	expect(html).toContain('aria-label="Mark Two as complete"');
+	expect(html).toContain('aria-pressed="false"');
 	expect(html).not.toContain('href="/course/1/lesson/1"');
 });

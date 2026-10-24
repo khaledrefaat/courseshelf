@@ -180,6 +180,10 @@ export function usePlayerControls() {
 				event,
 				event.target === binding.current?.video || event.target === wrapper,
 			);
+		const wheel = (event: WheelEvent) => {
+			if (hasPlayerBlockingPopup(document)) return;
+			shortcuts.wheel(event);
+		};
 		const changed = () => controller.syncElement();
 		const doubleClick = (event: MouseEvent) =>
 			playerDoubleClick(
@@ -202,6 +206,7 @@ export function usePlayerControls() {
 		document.addEventListener("keypress", keypress, true);
 		document.addEventListener("click", click, true);
 		wrapper.addEventListener("dblclick", doubleClick, true);
+		wrapper.addEventListener("wheel", wheel, { capture: true, passive: false });
 		document.addEventListener("fullscreenchange", changed);
 		document.addEventListener("webkitfullscreenchange", changed);
 		window.addEventListener("resize", windowChanged);
@@ -223,6 +228,7 @@ export function usePlayerControls() {
 			document.removeEventListener("keypress", keypress, true);
 			document.removeEventListener("click", click, true);
 			wrapper.removeEventListener("dblclick", doubleClick, true);
+			wrapper.removeEventListener("wheel", wheel, true);
 			document.removeEventListener("fullscreenchange", changed);
 			document.removeEventListener("webkitfullscreenchange", changed);
 			window.removeEventListener("resize", windowChanged);

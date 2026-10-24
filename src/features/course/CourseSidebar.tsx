@@ -11,11 +11,15 @@ export function CourseSidebar({
 	model,
 	lessonId,
 	onLessonSelect,
+	onToggleCompletion,
+	saving = false,
 }: {
 	course: Course;
 	model: ReturnType<typeof buildOutline>;
 	lessonId: number;
 	onLessonSelect?: () => void;
+	onToggleCompletion: (lessonId: number) => void;
+	saving?: boolean;
 }) {
 	const [expanded, setExpanded] = useState(
 		() => new Set(model.section ? [model.section.name] : []),
@@ -107,7 +111,32 @@ export function CourseSidebar({
 					{expanded.has(section.name) && (
 						<ul className="ml-5">
 							{section.lessons.map((lesson) => (
-								<li key={lesson.id}>
+								<li key={lesson.id} className="flex items-center gap-1">
+									<button
+										type="button"
+										aria-pressed={lesson.completed}
+										aria-label={`Mark ${lesson.title} as ${lesson.completed ? "incomplete" : "complete"}`}
+										title={
+											lesson.completed
+												? "Mark lesson as incomplete"
+												: "Mark lesson as complete"
+										}
+										disabled={saving}
+										onClick={() => onToggleCompletion(lesson.id)}
+										className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										{lesson.completed ? (
+											<Check
+												aria-hidden="true"
+												className="size-4.5 rounded-full bg-brand p-0.5 text-brand-foreground"
+											/>
+										) : (
+											<Circle
+												aria-hidden="true"
+												className="size-4.5 text-muted-foreground/40"
+											/>
+										)}
+									</button>
 									<Link
 										onClick={(event) => {
 											if (
@@ -123,27 +152,13 @@ export function CourseSidebar({
 										ref={lesson.id === lessonId ? currentRow : undefined}
 										to={`/course/${course.id}/lesson/${lesson.id}`}
 										aria-current={lesson.id === lessonId ? "page" : undefined}
-										className={`flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm leading-tight outline-none focus-visible:ring-2 focus-visible:ring-ring ${lesson.id === lessonId ? "bg-brand-soft font-medium text-brand" : "hover:bg-muted"}`}
+										className={`flex min-h-10 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-sm leading-tight outline-none focus-visible:ring-2 focus-visible:ring-ring ${lesson.id === lessonId ? "bg-brand-soft font-medium text-brand" : "hover:bg-muted"}`}
 									>
-										{lesson.completed ? (
-											<Check
-												aria-hidden="true"
-												className="size-4.5 shrink-0 rounded-full bg-brand p-0.5 text-brand-foreground"
-											/>
-										) : (
-											<Circle
-												aria-hidden="true"
-												className="size-4.5 shrink-0 text-muted-foreground/40"
-											/>
-										)}
 										<span className="min-w-0 flex-1 break-words">
 											{lesson.title}
 										</span>
 										<span className="shrink-0 text-xs tabular-nums text-muted-foreground">
 											{lessonTime(lesson.duration_seconds)}
-										</span>
-										<span className="sr-only">
-											{lesson.completed ? " (completed)" : " (not completed)"}
 										</span>
 									</Link>
 								</li>

@@ -164,8 +164,8 @@ export function LessonPlayer({
 							aria-label={lesson.title}
 							className={
 								expanded
-									? "lesson-video h-full w-full bg-player object-contain"
-									: "lesson-video block aspect-video w-full rounded-lg bg-player"
+									? "lesson-video outline-none h-full w-full bg-player object-contain"
+									: "lesson-video outline-none block aspect-video w-full rounded-lg bg-player"
 							}
 							onPlay={() => {
 								played.current = true;

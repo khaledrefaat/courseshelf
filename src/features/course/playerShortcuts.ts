@@ -23,6 +23,12 @@ export interface ShortcutGuard {
 	blocked: boolean;
 	activationTarget: boolean;
 }
+export interface ShortcutWheel {
+	deltaY: number;
+	defaultPrevented: boolean;
+	preventDefault(): void;
+	stopImmediatePropagation(): void;
+}
 export const isSpace = (event: Pick<ShortcutKey, "key" | "code">) =>
 	event.code === "Space" || event.key === " " || event.key === "Spacebar";
 
@@ -51,6 +57,17 @@ export function playerShortcuts(options: {
 }) {
 	let spaceHeld = false;
 	let spaceClickPending = false;
+	function adjustVolume(video: ShortcutVideo, raising: boolean) {
+		// Use the displayed whole percentage: native volume readback can drift
+		// slightly around a step boundary after setting the media volume.
+		const percent = Math.round(video.volume * 100);
+		const next = raising
+			? (Math.floor(percent / 5) + 1) * 5
+			: (Math.ceil(percent / 5) - 1) * 5;
+		video.volume = Math.max(0, Math.min(100, next)) / 100;
+		if (raising) video.muted = false;
+		options.indicate(`Volume ${Math.round(video.volume * 100)}%`);
+	}
 	return {
 		keydown(event: ShortcutKey, guard: ShortcutGuard) {
 			if (!isSpace(event)) spaceClickPending = false;
@@ -116,22 +133,22 @@ export function playerShortcuts(options: {
 				options.indicate(delta > 0 ? "+10s" : "−10s");
 			} else if (key === "arrowup" || key === "arrowdown") {
 				consume(event);
-				const raising = key === "arrowup";
-				// Use the displayed whole percentage: native volume readback can drift
-				// slightly around a step boundary after setting the media volume.
-				const percent = Math.round(video.volume * 100);
-				const next = raising
-					? (Math.floor(percent / 5) + 1) * 5
-					: (Math.ceil(percent / 5) - 1) * 5;
-				video.volume = Math.max(0, Math.min(100, next)) / 100;
-				if (raising) video.muted = false;
-				options.indicate(`Volume ${Math.round(video.volume * 100)}%`);
+				adjustVolume(video, key === "arrowup");
 			} else if (key === "m") {
 				consume(event);
 				if (event.repeat) return;
 				video.muted = !video.muted;
 				options.indicate(video.muted ? "Muted" : "Unmuted");
 			}
+		},
+		wheel(event: ShortcutWheel) {
+			if (!options.isFullscreen()) return;
+			if (event.defaultPrevented || !Number.isFinite(event.deltaY)) return;
+			if (event.deltaY === 0) return;
+			const video = options.video();
+			if (!video) return;
+			consume(event);
+			adjustVolume(video, event.deltaY < 0);
 		},
 		spaceContinuation(event: ShortcutKey, released: boolean) {
 			if (!spaceHeld || !isSpace(event)) return;
