@@ -155,35 +155,6 @@ describe("player fullscreen", () => {
 		expect(f.port.exitElement).toHaveBeenCalledOnce();
 		expect(f.port.setWindowFullscreen).not.toHaveBeenCalled();
 	});
-	it("uses window fullscreen for a Windows double-click and restores it on the next toggle", async () => {
-		const f = fixture(true, false, true);
-		await f.controller.toggle("window");
-		expect(f.calls).toEqual(["read", "set:true"]);
-		expect(f.states[f.states.length - 1]).toBe("window");
-		await f.controller.toggle("window");
-		expect(f.port.setWindowFullscreen).toHaveBeenLastCalledWith(false);
-		expect(f.states[f.states.length - 1]).toBe("none");
-	});
-	it("clears a competing video-only fullscreen before showing the Windows double-click layout", async () => {
-		const f = fixture(false, false, true);
-		const started = deferred();
-		const gate = deferred();
-		f.port.setWindowFullscreen.mockImplementationOnce(async () => {
-			started.resolve();
-			await gate.promise;
-			f.window.fullscreen = true;
-		});
-		const entering = f.controller.toggle("window");
-		await started.promise;
-		f.native();
-		f.controller.syncElement();
-		gate.resolve();
-		await entering;
-		expect(f.port.exitElement).toHaveBeenCalledOnce();
-		expect(f.states[f.states.length - 1]).toBe("window");
-		await f.controller.exit();
-		expect(f.window.fullscreen).toBe(false);
-	});
 	it("falls back automatically, records first, and returns to the maximized window without changing geometry", async () => {
 		const f = fixture(false);
 		await f.controller.toggle();
@@ -233,27 +204,24 @@ describe("player fullscreen", () => {
 		expect(f.port.setWindowFullscreen).not.toHaveBeenCalled();
 		expect(f.states[f.states.length - 1]).toBe("none");
 	});
-	it.each(["wrapper", "window"] as const)(
-		"unmount during a pending window write from %s entry restores without late fullscreen revival",
-		async (entry) => {
-			const f = fixture(false);
-			const started = deferred();
-			const gate = deferred();
-			f.port.setWindowFullscreen.mockImplementationOnce(async () => {
-				started.resolve();
-				await gate.promise;
-				f.window.fullscreen = true;
-			});
-			const entering = f.controller.toggle(entry);
-			await started.promise;
-			const disposing = f.controller.dispose();
-			gate.resolve();
-			await Promise.all([entering, disposing]);
-			expect(f.window.fullscreen).toBe(false);
-			expect(f.port.setWindowFullscreen).toHaveBeenLastCalledWith(false);
-			expect(f.states).not.toContain("window");
-		},
-	);
+	it("unmount during a pending fallback write waits then restores, without late fullscreen revival", async () => {
+		const f = fixture(false);
+		const started = deferred();
+		const gate = deferred();
+		f.port.setWindowFullscreen.mockImplementationOnce(async () => {
+			started.resolve();
+			await gate.promise;
+			f.window.fullscreen = true;
+		});
+		const entering = f.controller.toggle();
+		await started.promise;
+		const disposing = f.controller.dispose();
+		gate.resolve();
+		await Promise.all([entering, disposing]);
+		expect(f.window.fullscreen).toBe(false);
+		expect(f.port.setWindowFullscreen).toHaveBeenLastCalledWith(false);
+		expect(f.states).not.toContain("window");
+	});
 	it("f a second time during entry cancels rather than entering twice", async () => {
 		const f = fixture();
 		const gate = deferred();

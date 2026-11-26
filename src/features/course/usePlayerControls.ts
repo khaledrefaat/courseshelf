@@ -186,13 +186,16 @@ export function usePlayerControls() {
 			shortcuts.wheel(event);
 		};
 		const changed = () => controller.syncElement();
+		// WebView2's media controls can toggle fullscreen on the second click,
+		// before the later dblclick event. Cancel that click's default in capture.
+		const doubleClickEvent = windows ? "click" : "dblclick";
 		const doubleClick = (event: MouseEvent) =>
 			playerDoubleClick(
 				event,
 				binding.current?.video ?? null,
 				hasPlayerBlockingPopup(document),
 				() => {
-					void controller.toggle(windows ? "window" : "wrapper");
+					void controller.toggle();
 				},
 			);
 		const windowChanged = () => {
@@ -206,7 +209,7 @@ export function usePlayerControls() {
 		document.addEventListener("keyup", keyup, true);
 		document.addEventListener("keypress", keypress, true);
 		document.addEventListener("click", click, true);
-		wrapper.addEventListener("dblclick", doubleClick, true);
+		wrapper.addEventListener(doubleClickEvent, doubleClick, true);
 		wrapper.addEventListener("wheel", wheel, { capture: true, passive: false });
 		document.addEventListener("fullscreenchange", changed);
 		document.addEventListener("webkitfullscreenchange", changed);
@@ -228,7 +231,7 @@ export function usePlayerControls() {
 			document.removeEventListener("keyup", keyup, true);
 			document.removeEventListener("keypress", keypress, true);
 			document.removeEventListener("click", click, true);
-			wrapper.removeEventListener("dblclick", doubleClick, true);
+			wrapper.removeEventListener(doubleClickEvent, doubleClick, true);
 			wrapper.removeEventListener("wheel", wheel, true);
 			document.removeEventListener("fullscreenchange", changed);
 			document.removeEventListener("webkitfullscreenchange", changed);

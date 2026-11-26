@@ -1,5 +1,4 @@
 export type FullscreenMode = "none" | "wrapper" | "native" | "window";
-type FullscreenEntry = "wrapper" | "window";
 
 export interface FullscreenPort {
 	elementMode(): "wrapper" | "native" | null;
@@ -101,42 +100,32 @@ export function playerFullscreen(
 		});
 		return exiting;
 	}
-	async function enter(entry: FullscreenEntry = "wrapper") {
-		if (entry === "wrapper") {
-			try {
-				// Request from the gesture, before any window IPC/await.
-				await port.requestWrapper();
-				if (port.elementMode() !== "wrapper")
-					throw new Error("No fullscreen element");
-				if (!cancelled && !disposed) syncElement();
-				return;
-			} catch {
-				if (cancelled || disposed) return;
-			}
+	async function enter() {
+		try {
+			// Called synchronously from the key gesture, before any window IPC/await.
+			await port.requestWrapper();
+			if (port.elementMode() !== "wrapper")
+				throw new Error("No fullscreen element");
+			if (!cancelled && !disposed) syncElement();
+			return;
+		} catch {
+			if (cancelled || disposed) return;
 		}
 		try {
 			const original = await port.isWindowFullscreen();
 			if (cancelled || disposed) return;
 			originalWindow = original;
 			await port.setWindowFullscreen(true);
-			if (cancelled || disposed) return;
-			// WebView2 may also enter video-only fullscreen during a double-click.
-			// Clear it so the fullscreen window can show the player's overlays.
-			if (entry === "window" && port.elementMode() === "native") {
-				await port.exitElement();
-				if (port.elementMode() === "native")
-					throw new Error("Could not exit video fullscreen");
-			}
 			if (!cancelled && !disposed) syncElement();
 		} catch {
 			await leave();
 			if (!disposed) onError();
 		}
 	}
-	function beginEntry(entry: FullscreenEntry) {
+	function beginEntry() {
 		cancelled = false;
 		generation++;
-		entering = enter(entry).finally(() => {
+		entering = enter().finally(() => {
 			entering = null;
 		});
 		return entering;
@@ -150,7 +139,7 @@ export function playerFullscreen(
 		usesWindow: () => originalWindow !== null,
 		syncElement,
 		exit,
-		toggle(entry: FullscreenEntry = "wrapper"): Promise<void> {
+		toggle(): Promise<void> {
 			if (disposed) return Promise.resolve();
 			if (exiting) return exiting;
 			if (entering) return exit();
@@ -168,7 +157,7 @@ export function playerFullscreen(
 					if (active) return exit();
 					originalWindow = null;
 					syncElement();
-					return beginEntry(entry);
+					return beginEntry();
 				})()
 					.catch(() => {
 						if (!disposed) onError();
@@ -179,7 +168,7 @@ export function playerFullscreen(
 				return checking;
 			}
 			if (mode !== "none") return exit();
-			return beginEntry(entry);
+			return beginEntry();
 		},
 		async syncWindow() {
 			if (originalWindow === null || entering || exiting || disposed) return;

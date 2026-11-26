@@ -205,9 +205,10 @@ and the folder-tree sidebar.
   enabled; handled Space is consumed through keyup/keyboard-click activation to avoid double toggles.
 - Do not add canvas-based seek-frame retention without a successful real WebKitGTK check.
   The previous attempt produced noise/white frames and was removed; fake-media tests did not catch it.
-- Fullscreen tries the stable player wrapper first. Windows picture double-click uses
-  window fullscreen directly so captions and volume feedback stay with the video.
-  Window fullscreen uses only the approved
+- Fullscreen tries the stable player wrapper first. On Windows, capture the second
+  picture click before the native media action and use the same toggle as `f`.
+  Linux uses `dblclick`. Keep the native control strip interactive.
+  The window fallback uses only the approved
   `core:window:allow-set-fullscreen` and `core:window:allow-is-fullscreen`, records/restores the
   original fullscreen state on exit/unmount, and never resizes or changes maximization.
   On Linux, the approved read-only `actual_window_fullscreen` command reads GDK state;

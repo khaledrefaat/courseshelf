@@ -6,6 +6,8 @@ interface VideoSurface extends EventTarget {
 export function playerDoubleClick(
 	event: Pick<
 		MouseEvent,
+		| "type"
+		| "detail"
 		| "target"
 		| "button"
 		| "defaultPrevented"
@@ -22,6 +24,7 @@ export function playerDoubleClick(
 	toggle: () => void,
 ) {
 	if (
+		(event.type === "click" && event.detail !== 2) ||
 		!video ||
 		blocked ||
 		event.target !== video ||

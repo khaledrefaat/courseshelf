@@ -12,6 +12,8 @@ function fixture() {
 		}),
 	});
 	const event = {
+		type: "dblclick",
+		detail: 2,
 		target: video as EventTarget,
 		button: 0,
 		defaultPrevented: false,
@@ -34,6 +36,27 @@ it("consumes a picture double-click and uses the existing fullscreen toggle once
 	expect(f.event.stopImmediatePropagation).toHaveBeenCalledOnce();
 	playerDoubleClick(f.event, f.video, false, f.toggle);
 	expect(f.toggle).toHaveBeenCalledTimes(2); // A second double-click exits via the same controller.
+});
+
+it("consumes only the second Windows picture click before the native action", () => {
+	const f = fixture();
+	f.event.type = "click";
+	for (const detail of [1, 2, 3, 0]) {
+		f.event.detail = detail;
+		playerDoubleClick(f.event, f.video, false, f.toggle);
+	}
+	expect(f.toggle).toHaveBeenCalledOnce();
+	expect(f.event.preventDefault).toHaveBeenCalledOnce();
+	expect(f.event.stopImmediatePropagation).toHaveBeenCalledOnce();
+});
+
+it("leaves the Windows native control strip alone even on a second click", () => {
+	const f = fixture();
+	f.event.type = "click";
+	f.event.clientY = 400;
+	playerDoubleClick(f.event, f.video, false, f.toggle);
+	expect(f.toggle).not.toHaveBeenCalled();
+	expect(f.event.preventDefault).not.toHaveBeenCalled();
 });
 
 it.each([

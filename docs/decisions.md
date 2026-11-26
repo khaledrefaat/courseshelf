@@ -51,13 +51,13 @@ fullscreen, wheel events remain untouched so the course page scrolls normally. T
 video surface suppresses its focus outline while retaining focus and keyboard
 operation; other controls retain their focus indicators.
 
-On Windows, the maintainer reported that the native fullscreen square showed
-captions and wheel feedback while picture double-click hid them. Picture
-double-click uses the existing Tauri window-fullscreen path directly to keep
-both overlays in the WebView. If video-only fullscreen begins during entry, the
-controller clears it before showing the fullscreen player. The native button,
-`f`, and Linux picture double-click retain their existing entry paths. Verify
-the result in the Windows installer before sharing it.
+On Windows, the native fullscreen square and `f` showed captions and wheel
+feedback while picture double-click hid them. Routing double-click directly to
+window fullscreen then caused the installer to return to the normal layout
+during entry. Capture the second picture click before WebView2 can apply its
+native click action, and route it through the same wrapper-first toggle as `f`.
+Keep single clicks and native controls interactive. Linux keeps its `dblclick`
+handler. Confirm stable entry and overlay visibility in the Windows installer.
 
 Windows stores one player volume in local webview storage across lessons and
 app restarts. Restore it before autoplay and save from the video's

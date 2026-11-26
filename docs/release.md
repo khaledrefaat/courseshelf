@@ -244,8 +244,8 @@ Before sharing a new build, check it in the real native app:
   clicking its title still opens that lesson.
 - Check `f`, Escape, picture double-click and the native fullscreen button. Exiting
   restores layout, position and the previous window state, including maximization.
-  Windows picture double-click uses Tauri window fullscreen directly. `f` tries
-  the wrapper first, and Linux reads actual GTK state for the window fallback.
+  Picture double-click and `f` try the wrapper first. Linux reads actual GTK
+  state for the window fallback.
 - Restart and play an existing course without re-picking; verify covers, notes,
   counts, Locate folder and safe rescanning with a missing/empty test root.
 - Launch a second instance; it should focus the first. Make a backup before
