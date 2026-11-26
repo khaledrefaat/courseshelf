@@ -25,7 +25,7 @@ the subtitle metadata migration (0005) runs automatically. Published 0.3.0 downl
 links stay unchanged until the new installers are uploaded and verified.
 
 Only the small Whisper helpers are bundled. FFmpeg is downloaded directly from
-its pinned upstream release after consent (~131 MiB Ubuntu / ~163 MiB Windows),
+its pinned upstream release after consent (~129 MiB Ubuntu / ~161 MiB Windows),
 as is the separate ~142 MiB English model. Existing local FFmpeg files in the
 legacy resource directory are excluded by the narrower resource map. Preparing
 helpers no longer fetches FFmpeg. Downloads live in app data and are reused offline;

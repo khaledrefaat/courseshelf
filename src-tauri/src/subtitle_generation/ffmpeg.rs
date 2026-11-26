@@ -10,6 +10,10 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
+const BUILD_REPOSITORY: &str = "https://github.com/FFmpeg-Builds/FFmpeg-Builds";
+const RELEASE_TAG: &str = "autobuild-2026-10-31-12-59";
+const SOURCE_REVISION: &str = "8dca1586f4";
+
 #[derive(Clone, Copy)]
 struct Release {
     stem: &'static str,
@@ -23,25 +27,25 @@ struct Release {
     zip: bool,
 }
 const LINUX: Release = Release {
-    stem: "ffmpeg-n8.1.3-18-g46d899d7a0-linux64-lgpl-8.1",
-    archive: "ffmpeg-n8.1.3-18-g46d899d7a0-linux64-lgpl-8.1.tar.xz",
-    bytes: 137_053_196,
-    sha256: "746a270f8f6bdaca09a5caee3a9303e2e42cd4006891541f629179d162927516",
+    stem: "ffmpeg-n8.1.3-27-g8dca1586f4-linux64-lgpl-8.1",
+    archive: "ffmpeg-n8.1.3-27-g8dca1586f4-linux64-lgpl-8.1.tar.xz",
+    bytes: 135_188_284,
+    sha256: "a64f3171e6ad1f7d358d28890a907ee478c331d1177ec696a93418f79ac3f1f3",
     binary: "ffmpeg",
-    binary_bytes: 142_260_744,
-    binary_sha256: "001286fc70e397509ee6d2b0d3b08fd26562e132b115deb1c689a73a0e3beeca",
-    folder: "ffmpeg-8.1.3-46d899d7a0-linux-x64",
+    binary_bytes: 140_046_536,
+    binary_sha256: "09225778e63bb602f377cc9038d4556b5bd18b78d8bd5994a842ad5e262f72e3",
+    folder: "ffmpeg-8.1.3-8dca1586f4-linux-x64",
     zip: false,
 };
 const WINDOWS: Release = Release {
-    stem: "ffmpeg-n8.1.3-18-g46d899d7a0-win64-lgpl-8.1",
-    archive: "ffmpeg-n8.1.3-18-g46d899d7a0-win64-lgpl-8.1.zip",
-    bytes: 170_543_316,
-    sha256: "0bfeae2d03bce73d58ab5c7ff8cb0f50cba524091fd47a9ba6f3504e7dd5eafa",
+    stem: "ffmpeg-n8.1.3-27-g8dca1586f4-win64-lgpl-8.1",
+    archive: "ffmpeg-n8.1.3-27-g8dca1586f4-win64-lgpl-8.1.zip",
+    bytes: 167_778_744,
+    sha256: "d4c2a42673917b4a97104a3e9f082729a9730796b98664e37c0b7eba6c6c613d",
     binary: "ffmpeg.exe",
-    binary_bytes: 134_092_288,
-    binary_sha256: "d99608a9f2662003104c921ce23e7aa857b3a9bcac368b936e4fb01dcf2110b7",
-    folder: "ffmpeg-8.1.3-46d899d7a0-windows-x64",
+    binary_bytes: 131_782_656,
+    binary_sha256: "04d0c351e53dde1cc45ba437c28d20a0b382df2798999def5d4110e23d74e62c",
+    folder: "ffmpeg-8.1.3-8dca1586f4-windows-x64",
     zip: true,
 };
 fn release() -> Release {
@@ -261,8 +265,16 @@ fn unpack(spec: Release, archive: &Path, stage: &Path, job: &Arc<Job>) -> Result
         fs::set_permissions(stage.join(spec.binary), fs::Permissions::from_mode(0o755))
             .map_err(|_| "Could not make FFmpeg executable.")?;
     }
-    fs::write(stage.join("BUILD-SOURCES.txt"), "FFmpeg LGPL build: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-18-13-01\nSource/build recipes: https://github.com/BtbN/FFmpeg-Builds\nFFmpeg source: https://github.com/FFmpeg/FFmpeg/tree/46d899d7a0\nDownloaded directly from upstream; preserve LICENSE.txt and review redistribution obligations before sharing.\n")
-        .map_err(|_| "Could not save FFmpeg source notices.")?;
+    fs::write(
+        stage.join("BUILD-SOURCES.txt"),
+        format!(
+            "FFmpeg LGPL build: {BUILD_REPOSITORY}/releases/tag/{RELEASE_TAG}\n\
+             Source/build recipes: {BUILD_REPOSITORY}\n\
+             FFmpeg source: https://github.com/FFmpeg/FFmpeg/tree/{SOURCE_REVISION}\n\
+             Downloaded directly from upstream; preserve LICENSE.txt and review redistribution obligations before sharing.\n"
+        ),
+    )
+    .map_err(|_| "Could not save FFmpeg source notices.")?;
     cancelled(&job.cancel)
 }
 
@@ -306,7 +318,7 @@ fn ensure_release(
     let result = (|| {
         let archive = stage.join("archive.part");
         let url = format!(
-            "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-18-13-01/{}",
+            "{BUILD_REPOSITORY}/releases/download/{RELEASE_TAG}/{}",
             spec.archive
         );
         download::fetch(

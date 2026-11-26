@@ -36,7 +36,7 @@ not the identity of an unsigned publisher.
 
 The toolchain is installed on GitHub's runner, not your Windows computer.
 0.3.1 source builds prepare only the small pinned Whisper helpers before packaging.
-FFmpeg (~163 MiB on Windows) and the English model (~142 MiB) download separately
+FFmpeg (~161 MiB on Windows) and the English model (~142 MiB) download separately
 after explicit consent, are verified, and are reused offline from app data. The
 installer does not include FFmpeg or the model. See
 [subtitle generation](subtitle-generation.md) for setup, size and redistribution checks.

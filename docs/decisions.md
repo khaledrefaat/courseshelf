@@ -65,6 +65,9 @@ Reversed or unanchored invalid cues still fail visibly.
 
 FFmpeg and `base.en` download only with consent, keeping installers smaller. Their
 integrity checks are deliberate; do not skip them to accelerate course batches.
+The October 18 daily FFmpeg release aged out of upstream retention and returned
+HTTP 404 on fresh installs. Pin a retained month-end release, which upstream keeps
+for two years, and report HTTP 404 distinctly from a connection failure.
 Helpers stay bundled, CPU-only and bounded. SQLite holds subtitle metadata; cache,
 models and tools live in app data. Optional beside-video exports never overwrite.
 See [subtitle generation](subtitle-generation.md) for storage, timing and export rules.

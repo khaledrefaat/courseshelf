@@ -7,8 +7,8 @@ and FFmpeg are downloaded separately after consent, not bundled in the installer
 ## Use
 
 Open a lesson with no matching sidecar and click **Generate English subtitles**
-below the player. First use lists the missing downloads: FFmpeg (~131 MiB on Linux,
-~163 MiB on Windows) and `base.en` (147,964,211 bytes, approximately 142 MiB).
+below the player. First use lists the missing downloads: FFmpeg (~129 MiB on Linux,
+~161 MiB on Windows) and `base.en` (147,964,211 bytes, approximately 142 MiB).
 Confirm **Download and generate**. Existing valid downloads are reused; if the
 model is already installed, only FFmpeg is requested. The backend verifies pinned
 sizes and SHA-256 checksums before installation and checks each executable/model
@@ -69,7 +69,7 @@ Paths below are relative to Tauri's app **data** directory (on Ubuntu, normally
 The existing SQL-plugin database location is unchanged.
 
 - `models/ggml-base.en.bin`: one shared downloaded model, not inside the installer.
-- `tools/ffmpeg-8.1.3-46d899d7a0-<platform>-x64/`: verified FFmpeg executable,
+- `tools/ffmpeg-8.1.3-8dca1586f4-<platform>-x64/`: verified FFmpeg executable,
   LICENSE.txt and BUILD-SOURCES.txt. Temporary downloads/extraction use
   `tools/ffmpeg-staging-<random-id>/`, cleaned on failure/cancellation or next startup.
   Repair preserves an invalid prior directory as `ffmpeg-invalid-<random-id>`;
@@ -149,8 +149,8 @@ for compiler-generated scalar instructions in AVX2 builds.
 
 The bundled Whisper helpers occupy about **6 MiB uncompressed** on Linux. Actual
 installer compression varies. The separately downloaded FFmpeg executable occupies
-about 136 MiB on Linux / 128 MiB on Windows, plus the model's ~142 MiB. Download
-archives temporarily need ~131/163 MiB too and are removed after extraction.
+about 134 MiB on Linux / 126 MiB on Windows, plus the model's ~142 MiB. Download
+archives temporarily need ~129/161 MiB too and are removed after extraction.
 The local Ubuntu 0.3.1 rebuild measured **8.48 MiB**, versus **66.53 MiB** with
 bundled FFmpeg (about 87% smaller). Windows installer size must be measured by its workflow.
 Preparation needs at least 1.5 GB free, plus room for Cargo/build output. The
@@ -162,8 +162,8 @@ Only pinned helpers run, arguments are passed without a shell, and FFmpeg input
 protocols/formats are restricted. Course access reuses registered-root validation
 and persisted fs scope; symlinks/reparse points are rejected.
 
-FFmpeg downloads from BtbN's fixed `autobuild-2026-10-18-13-01` release, LGPL 8.1
-build `n8.1.3-18-g46d899d7a0`. Linux uses TAR/XZ, Windows ZIP. The Rust downloader
+FFmpeg downloads from the fixed [October 2026 month-end release](https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59),
+LGPL 8.1 build `n8.1.3-27-g8dca1586f4`. Linux uses TAR/XZ, Windows ZIP. The Rust downloader
 allows only HTTPS redirects to exact GitHub asset hosts and verifies both archive
 and extracted binary hashes/sizes. Bounded extraction (512 entries, 512 MiB total,
 256 MiB XZ memory cap, 64 KiB license cap) copies only the expected executable and
@@ -176,16 +176,20 @@ by the installed app. Existing sidecar playback and cache-only export need no do
 Before redistributing helper binaries, preserve all generated upstream licenses
 and `BUILD-SOURCES.txt`, and review the selected FFmpeg build's corresponding-source
 and redistribution obligations. A link to source is not a substitute for fulfilling
-those obligations. Dated upstream artifacts may expire: if a pinned URL disappears,
-fail closed and review/update the URL/checksum together, never silently use latest.
+those obligations. The upstream retention policy keeps 14 daily builds and retains
+the final build of each month for two years. If a pin expires, the app reports
+HTTP 404 explicitly. Update the URL, sizes and hashes together using a retained
+release. After updating to an installer with the new pin, the next subtitle
+generation prompts for the new FFmpeg download even if the old build is cached.
 References: [whisper.cpp](https://github.com/ggml-org/whisper.cpp),
 [model distribution](https://huggingface.co/ggerganov/whisper.cpp),
-[FFmpeg builds](https://github.com/BtbN/FFmpeg-Builds),
+[FFmpeg build retention policy](https://github.com/FFmpeg-Builds/FFmpeg-Builds#release-retention-policy),
 [FFmpeg licensing](https://ffmpeg.org/legal.html).
 
 ## Manual verification
 
-1. Back up the database, stop any installed copy, then launch dev from these sources.
+1. Back up the database and quit Courseshelf. Install and launch the new
+   GitHub Actions installer on Windows, or launch dev from these sources on Linux.
 2. Open a lesson with no subtitles. Confirm the download prompt lists only missing
    items with their platform sizes. Download FFmpeg, Cancel mid-download, retry and
    confirm progress/extraction stages. With an existing model, only FFmpeg is requested.

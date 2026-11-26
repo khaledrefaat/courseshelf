@@ -60,7 +60,13 @@ pub fn fetch(spec: &Download<'_>, path: &Path, job: &Arc<Job>) -> Result<(), Str
     let mut response = tauri::async_runtime::block_on(async {
         client.get(spec.url).send().await?.error_for_status()
     })
-    .map_err(|_| "FFmpeg download failed. Check your connection and retry.")?;
+    .map_err(|error| match error.status() {
+        Some(reqwest::StatusCode::NOT_FOUND) => {
+            "The pinned FFmpeg release could not be found on GitHub (HTTP 404). Check for a newer Courseshelf installer.".into()
+        }
+        Some(status) => format!("FFmpeg download failed (GitHub HTTP {}).", status.as_u16()),
+        None => "FFmpeg download failed. Check your connection and retry.".into(),
+    })?;
     if response
         .content_length()
         .is_some_and(|size| size != spec.bytes)

@@ -135,8 +135,9 @@ and the folder-tree sidebar.
   Windows helpers use CREATE_NO_WINDOW. Never run helpers from PATH.
 - Bundle only `resources/subtitle-helpers/whisper/`, never its legacy parent folder.
   FFmpeg downloads directly from a pinned upstream HTTPS release after explicit consent
-  (~131 MiB Linux / ~163 MiB Windows). Verify archive size/SHA-256 and extracted binary
-  size/SHA-256; extract only the expected regular binary and license into owned staging,
+  (~129 MiB Linux / ~161 MiB Windows). Pin retained month-end releases. Verify archive
+  and extracted binary sizes and SHA-256 hashes. Extract only the expected regular
+  binary and license into owned staging,
   then publish into app-data `tools/`. Reject archive links/traversal and cap extraction.
   Revalidate the installed binary before each generation; no network when it is valid.
   Missing/invalid tools need consent to download/repair. Keep progress, cancellation and
