@@ -242,9 +242,10 @@ Before sharing a new build, check it in the real native app:
   lesson has no auto-advance. Pending saves settle before navigation.
 - Click a sidebar lesson's completion circle to mark it complete or incomplete;
   clicking its title still opens that lesson.
-- f/Escape and the native fullscreen button; exiting restores layout, position and
-  the previous window state, including maximization. Wrapper fullscreen is tried
-  first, with a Tauri window fallback; Linux reads actual GTK state.
+- Check `f`, Escape, picture double-click and the native fullscreen button. Exiting
+  restores layout, position and the previous window state, including maximization.
+  Windows picture double-click uses Tauri window fullscreen directly. `f` tries
+  the wrapper first, and Linux reads actual GTK state for the window fallback.
 - Restart and play an existing course without re-picking; verify covers, notes,
   counts, Locate folder and safe rescanning with a missing/empty test root.
 - Launch a second instance; it should focus the first. Make a backup before

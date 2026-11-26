@@ -4,6 +4,7 @@ import { registerProgressFlush } from "@/features/course/closeProgress";
 import { GenerateSubtitles } from "@/features/course/GenerateSubtitles";
 import { NextLessonCountdown } from "@/features/course/NextLessonCountdown";
 import { trackPlayback } from "@/features/course/playbackTracking";
+import { bindPlayerVolumePreference } from "@/features/course/playerVolumePreference";
 import { firstPlay, playQuietly } from "@/features/course/progressActions";
 import { positionLabel } from "@/features/course/trackingRules";
 import { useAutoAdvance } from "@/features/course/useAutoAdvance";
@@ -64,6 +65,7 @@ export function LessonPlayer({
 		source,
 		videoRef,
 	);
+	const { platform } = subtitles;
 	const tracking = useRef<ReturnType<typeof trackPlayback> | null>(null);
 	const completeRef = useRef(onComplete);
 	const [error, setError] = useState<string | null>(null);
@@ -114,6 +116,8 @@ export function LessonPlayer({
 	useLayoutEffect(() => {
 		const video = videoRef.current;
 		if (!source || !video) return;
+		const volumePreference =
+			platform === "windows" ? bindPlayerVolumePreference(video) : undefined;
 		const controller = trackPlayback(video, {
 			savedPosition,
 			completed: lesson.completed,
@@ -131,7 +135,10 @@ export function LessonPlayer({
 		});
 		tracking.current = controller;
 		const unbind = bindPlayer(video, controller);
-		const unregister = registerProgressFlush(controller.flush);
+		const unregister = registerProgressFlush(() => {
+			volumePreference?.flush();
+			controller.flush();
+		});
 		const unregisterPlayer = registerManagedPlayer(courseId, () => {
 			void onBeforePause();
 			video.pause();
@@ -141,6 +148,7 @@ export function LessonPlayer({
 		};
 		document.addEventListener("visibilitychange", hidden);
 		return () => {
+			volumePreference?.dispose();
 			controller.dispose();
 			tracking.current = null;
 			unbind();
@@ -148,7 +156,15 @@ export function LessonPlayer({
 			unregisterPlayer();
 			document.removeEventListener("visibilitychange", hidden);
 		};
-	}, [source, savedPosition, lesson.id, courseId, bindPlayer, onBeforePause]);
+	}, [
+		source,
+		savedPosition,
+		lesson.id,
+		courseId,
+		bindPlayer,
+		onBeforePause,
+		platform,
+	]);
 	return (
 		<div className={expanded ? "h-full w-full" : undefined}>
 			{source ? (
@@ -186,7 +202,7 @@ export function LessonPlayer({
 							onEnded={() => setEnded(true)}
 							onSeeking={() => setEnded(false)}
 						/>
-						{subtitles.platform === "windows" && (
+						{platform === "windows" && (
 							<WindowsSubtitles
 								text={autoAdvance.state ? "" : subtitles.text}
 								expanded={expanded}

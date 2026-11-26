@@ -205,13 +205,18 @@ and the folder-tree sidebar.
   enabled; handled Space is consumed through keyup/keyboard-click activation to avoid double toggles.
 - Do not add canvas-based seek-frame retention without a successful real WebKitGTK check.
   The previous attempt produced noise/white frames and was removed; fake-media tests did not catch it.
-- Fullscreen tries the stable player wrapper first. Window fallback uses only the approved
+- Fullscreen tries the stable player wrapper first. Windows picture double-click uses
+  window fullscreen directly so captions and volume feedback stay with the video.
+  Window fullscreen uses only the approved
   `core:window:allow-set-fullscreen` and `core:window:allow-is-fullscreen`, records/restores the
   original fullscreen state on exit/unmount, and never resizes or changes maximization.
   On Linux, the approved read-only `actual_window_fullscreen` command reads GDK state;
   Tao's cached isFullscreen flag alone is not reliable after OS-triggered fullscreen exits.
   The main window starts maximized, not true fullscreen. Keyboard seeking waits for the
   tracking controller's resume-ready state and uses normal media events, never synthetic ended.
+- On Windows, persist one local player volume across lessons and app restarts.
+  Restore before autoplay and save actual volume changes from all player inputs.
+  Mute is temporary and keeps the saved volume level.
 
 
 - Rescanning never deletes progress or notes. Lessons whose files disappeared are marked
@@ -274,8 +279,8 @@ and the folder-tree sidebar.
 - One handler on the Course page. It ignores editable elements, IME composition, modifier keys,
   open dialogs and menus, and tab/menu/listbox roles. Seeks go through the normal media events so
   position saving and auto-complete keep working. New shortcuts follow the same guards.
-- Fullscreen tries the wrapper element first, then the Tauri window fallback, and always restores
-  the original window state (maximized at startup).
+- The `f` shortcut tries the wrapper element first, then the Tauri window fallback.
+  Exiting restores the original window state (maximized at startup).
 
 ## Lesson flashcards (Tauri, unreleased)
 - Single lessons and an explicit Manage → Generate course flashcards queue. Reuse the pure shared rules in

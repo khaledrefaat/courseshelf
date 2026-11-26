@@ -121,6 +121,7 @@ export function usePlayerControls() {
 			);
 		};
 		const nativeWindow = getCurrentWindow();
+		const windows = subtitlePlatform() === "windows";
 		const prior = previousRestoration;
 		const controller = playerFullscreen(
 			fullscreenPort(wrapper, () => binding.current?.video ?? null, {
@@ -149,7 +150,7 @@ export function usePlayerControls() {
 				setMode(next);
 			},
 			() => indicate("Could not change fullscreen. Press f to retry."),
-			{ preferWrapperForNative: subtitlePlatform() === "windows" },
+			{ preferWrapperForNative: windows },
 		);
 		fullscreen.current = controller;
 		const shortcuts = playerShortcuts({
@@ -191,7 +192,7 @@ export function usePlayerControls() {
 				binding.current?.video ?? null,
 				hasPlayerBlockingPopup(document),
 				() => {
-					void controller.toggle();
+					void controller.toggle(windows ? "window" : "wrapper");
 				},
 			);
 		const windowChanged = () => {

@@ -45,5 +45,5 @@ export function playerDoubleClick(
 		return;
 	event.preventDefault();
 	event.stopImmediatePropagation();
-	toggle(); // Synchronous user gesture: same wrapper-first controller as f.
+	toggle(); // Keep any element fullscreen request within the user gesture.
 }
