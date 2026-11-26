@@ -1,9 +1,18 @@
-import { expect, it, vi } from "vitest";
-import { playerDoubleClick } from "@/features/course/playerDoubleClick";
+import { afterEach, expect, it, vi } from "vitest";
+import {
+	playerDoubleClick,
+	WINDOWS_PICTURE_CLICK_DELAY,
+	windowsPictureClicks,
+} from "@/features/course/playerDoubleClick";
 
 function fixture() {
 	const video = Object.assign(new EventTarget(), {
 		controls: true,
+		paused: false,
+		ended: false,
+		error: null,
+		play: vi.fn(async () => {}),
+		pause: vi.fn(),
 		getBoundingClientRect: () => ({
 			top: 20,
 			bottom: 420,
@@ -12,7 +21,6 @@ function fixture() {
 		}),
 	});
 	const event = {
-		type: "dblclick",
 		detail: 2,
 		target: video as EventTarget,
 		button: 0,
@@ -20,6 +28,7 @@ function fixture() {
 		ctrlKey: false,
 		altKey: false,
 		metaKey: false,
+		shiftKey: false,
 		clientX: 400,
 		clientY: 200,
 		preventDefault: vi.fn(),
@@ -27,6 +36,27 @@ function fixture() {
 	};
 	return { video, event, toggle: vi.fn() };
 }
+
+function windowsFixture() {
+	vi.useFakeTimers();
+	const f = fixture();
+	const current: { video: typeof f.video | null } = { video: f.video };
+	const blocked = vi.fn(() => false);
+	const controller = windowsPictureClicks({
+		video: () => current.video,
+		blocked,
+		toggleFullscreen: f.toggle,
+	});
+	return {
+		...f,
+		current,
+		blocked,
+		cancel: controller.cancel,
+		click: (detail: number) => controller.click({ ...f.event, detail }),
+	};
+}
+
+afterEach(() => vi.useRealTimers());
 
 it("consumes a picture double-click and uses the existing fullscreen toggle once", () => {
 	const f = fixture();
@@ -38,25 +68,67 @@ it("consumes a picture double-click and uses the existing fullscreen toggle once
 	expect(f.toggle).toHaveBeenCalledTimes(2); // A second double-click exits via the same controller.
 });
 
-it("consumes only the second Windows picture click before the native action", () => {
-	const f = fixture();
-	f.event.type = "click";
-	for (const detail of [1, 2, 3, 0]) {
-		f.event.detail = detail;
-		playerDoubleClick(f.event, f.video, false, f.toggle);
-	}
-	expect(f.toggle).toHaveBeenCalledOnce();
-	expect(f.event.preventDefault).toHaveBeenCalledOnce();
-	expect(f.event.stopImmediatePropagation).toHaveBeenCalledOnce();
-});
+it.each([false, true])(
+	"Windows double-click enters and exits fullscreen without changing playback (paused=%s)",
+	(paused) => {
+		const f = windowsFixture();
+		f.video.paused = paused;
+		for (const count of [1, 2]) {
+			f.click(1);
+			expect(f.toggle).toHaveBeenCalledTimes(count - 1);
+			vi.advanceTimersByTime(WINDOWS_PICTURE_CLICK_DELAY - 1);
+			f.click(2);
+			expect(f.toggle).toHaveBeenCalledTimes(count);
+			vi.advanceTimersByTime(WINDOWS_PICTURE_CLICK_DELAY);
+		}
+		expect(f.event.preventDefault).toHaveBeenCalledTimes(4);
+		expect(f.event.stopImmediatePropagation).toHaveBeenCalledTimes(4);
+		expect(f.video.play).not.toHaveBeenCalled();
+		expect(f.video.pause).not.toHaveBeenCalled();
+	},
+);
 
-it("leaves the Windows native control strip alone even on a second click", () => {
-	const f = fixture();
-	f.event.type = "click";
+it.each([false, true])(
+	"a single Windows picture click toggles playback after the delay (paused=%s)",
+	(paused) => {
+		const f = windowsFixture();
+		f.video.paused = paused;
+		f.click(1);
+		expect(f.video.play).not.toHaveBeenCalled();
+		expect(f.video.pause).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(WINDOWS_PICTURE_CLICK_DELAY);
+		expect(paused ? f.video.play : f.video.pause).toHaveBeenCalledOnce();
+		expect(f.toggle).not.toHaveBeenCalled();
+		f.click(2); // A late second click cannot turn an executed single click into fullscreen.
+		expect(f.toggle).not.toHaveBeenCalled();
+	},
+);
+
+it.each(["cleanup", "lesson change", "popup", "playback change", "ended"])(
+	"drops a pending Windows click on %s",
+	(reason) => {
+		const f = windowsFixture();
+		f.click(1);
+		if (reason === "cleanup") f.cancel();
+		if (reason === "lesson change") f.current.video = null;
+		if (reason === "popup") f.blocked.mockReturnValue(true);
+		if (reason === "playback change") f.video.paused = true;
+		if (reason === "ended") f.video.ended = true;
+		vi.advanceTimersByTime(WINDOWS_PICTURE_CLICK_DELAY);
+		expect(f.video.play).not.toHaveBeenCalled();
+		expect(f.video.pause).not.toHaveBeenCalled();
+	},
+);
+
+it("leaves native Windows control-strip clicks alone", () => {
+	const f = windowsFixture();
 	f.event.clientY = 400;
-	playerDoubleClick(f.event, f.video, false, f.toggle);
+	f.click(1);
+	f.click(2);
+	vi.advanceTimersByTime(WINDOWS_PICTURE_CLICK_DELAY);
 	expect(f.toggle).not.toHaveBeenCalled();
 	expect(f.event.preventDefault).not.toHaveBeenCalled();
+	expect(f.video.pause).not.toHaveBeenCalled();
 });
 
 it.each([

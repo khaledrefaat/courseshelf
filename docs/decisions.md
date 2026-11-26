@@ -54,10 +54,13 @@ operation; other controls retain their focus indicators.
 On Windows, the native fullscreen square and `f` showed captions and wheel
 feedback while picture double-click hid them. Routing double-click directly to
 window fullscreen then caused the installer to return to the normal layout
-during entry. Capture the second picture click before WebView2 can apply its
-native click action, and route it through the same wrapper-first toggle as `f`.
-Keep single clicks and native controls interactive. Linux keeps its `dblclick`
-handler. Confirm stable entry and overlay visibility in the Windows installer.
+during entry. Capturing the second picture click and routing it through the
+same wrapper-first toggle as `f` fixed the transition, but the first native
+click could still pause the video. Capture both picture clicks and defer a
+single click's play/pause for 500 ms. A recognized double-click in that interval
+cancels the pending single click and changes fullscreen without changing
+playback. Keep the native controls interactive. Linux keeps its `dblclick`
+handler. Verify playback continuity and overlays in the Windows installer.
 
 Windows stores one player volume in local webview storage across lessons and
 app restarts. Restore it before autoplay and save from the video's

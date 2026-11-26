@@ -132,10 +132,12 @@ Use disposable copies of course folders for missing-file/relocation checks.
 - With a known-good subtitle sidecar, compare the native fullscreen square, `f`,
   and picture double-click. Enter mid-cue and verify the player stays fullscreen
   after the transition. Check that subtitles remain visible while the wheel
-  changes volume and shows the percentage. Verify a single picture click and
-  seeking in the native control strip still behave normally. Double-click again
-  or press Escape to exit. Verify the previous maximized/windowed layout and
-  playback position, including when leaving the course during entry.
+  changes volume and shows the percentage. Double-click to enter and exit while
+  playing and while paused, checking that audio plays continuously or the video
+  stays paused. A single picture click toggles playback after 500 ms. Play/pause
+  and seeking in the native control strip remain immediate. Press Escape to exit
+  and verify the previous maximized/windowed layout and playback position,
+  including when leaving the course during entry.
 - Set Windows player volume with the native slider, Arrow Up/Down and the
   fullscreen wheel. Verify the last level carries over to a new lesson and
   survives fully quitting and reopening, including at 0%. Mute and unmute

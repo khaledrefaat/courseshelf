@@ -7,7 +7,10 @@ import {
 	useState,
 } from "react";
 import type { trackPlayback } from "@/features/course/playbackTracking";
-import { playerDoubleClick } from "@/features/course/playerDoubleClick";
+import {
+	playerDoubleClick,
+	windowsPictureClicks,
+} from "@/features/course/playerDoubleClick";
 import {
 	type FullscreenMode,
 	playerFullscreen,
@@ -15,6 +18,7 @@ import {
 import { fullscreenPort } from "@/features/course/playerFullscreenDom";
 import {
 	focusPlayer,
+	isSpace,
 	playerShortcuts,
 } from "@/features/course/playerShortcuts";
 import { subtitlePlatform } from "@/features/course/subtitleCues";
@@ -153,25 +157,40 @@ export function usePlayerControls() {
 			{ preferWrapperForNative: windows },
 		);
 		fullscreen.current = controller;
+		const toggleFullscreen = () => {
+			void controller.toggle();
+		};
+		const pictureClicks = windows
+			? windowsPictureClicks({
+					video: () => binding.current?.video ?? null,
+					blocked: () => document.hidden || hasPlayerBlockingPopup(document),
+					toggleFullscreen,
+				})
+			: null;
 		const shortcuts = playerShortcuts({
 			cancelAutoAdvance: () => autoAdvance.current?.() ?? false,
 			video: () => binding.current?.video ?? null,
 			canSeek: () => binding.current?.tracking.canSeek() ?? false,
 			focus,
 			toggleFullscreen: () => {
-				void controller.toggle();
+				pictureClicks?.cancel();
+				toggleFullscreen();
 			},
 			exitFullscreen: () => {
+				pictureClicks?.cancel();
 				void controller.exit();
 			},
 			isFullscreen: controller.isActive,
 			indicate,
 		});
-		const keydown = (event: KeyboardEvent) =>
+		const keydown = (event: KeyboardEvent) => {
 			shortcuts.keydown(
 				event,
 				shortcutGuard(event.composedPath(), hasPlayerBlockingPopup(document)),
 			);
+			if (pictureClicks && isSpace(event) && event.defaultPrevented)
+				pictureClicks.cancel();
+		};
 		const keyup = (event: KeyboardEvent) =>
 			shortcuts.spaceContinuation(event, true);
 		const keypress = (event: KeyboardEvent) =>
@@ -185,31 +204,32 @@ export function usePlayerControls() {
 			if (hasPlayerBlockingPopup(document)) return;
 			shortcuts.wheel(event);
 		};
-		const changed = () => controller.syncElement();
-		// WebView2's media controls can toggle fullscreen on the second click,
-		// before the later dblclick event. Cancel that click's default in capture.
-		const doubleClickEvent = windows ? "click" : "dblclick";
+		const changed = () => {
+			pictureClicks?.cancel();
+			controller.syncElement();
+		};
+		const pictureClickEvent = windows ? "click" : "dblclick";
 		const doubleClick = (event: MouseEvent) =>
 			playerDoubleClick(
 				event,
 				binding.current?.video ?? null,
 				hasPlayerBlockingPopup(document),
-				() => {
-					void controller.toggle();
-				},
+				toggleFullscreen,
 			);
+		const pictureClick = pictureClicks?.click ?? doubleClick;
 		const windowChanged = () => {
 			void controller.syncWindow();
 		};
 		const blur = () => shortcuts.reset();
 		const leaving = () => {
+			pictureClicks?.cancel();
 			void controller.exit();
 		};
 		document.addEventListener("keydown", keydown, true);
 		document.addEventListener("keyup", keyup, true);
 		document.addEventListener("keypress", keypress, true);
 		document.addEventListener("click", click, true);
-		wrapper.addEventListener(doubleClickEvent, doubleClick, true);
+		wrapper.addEventListener(pictureClickEvent, pictureClick, true);
 		wrapper.addEventListener("wheel", wheel, { capture: true, passive: false });
 		document.addEventListener("fullscreenchange", changed);
 		document.addEventListener("webkitfullscreenchange", changed);
@@ -225,13 +245,14 @@ export function usePlayerControls() {
 		}, 500);
 		return () => {
 			active = false;
+			pictureClicks?.cancel();
 			clearTimeout(timer.current);
 			clearInterval(poll);
 			document.removeEventListener("keydown", keydown, true);
 			document.removeEventListener("keyup", keyup, true);
 			document.removeEventListener("keypress", keypress, true);
 			document.removeEventListener("click", click, true);
-			wrapper.removeEventListener(doubleClickEvent, doubleClick, true);
+			wrapper.removeEventListener(pictureClickEvent, pictureClick, true);
 			wrapper.removeEventListener("wheel", wheel, true);
 			document.removeEventListener("fullscreenchange", changed);
 			document.removeEventListener("webkitfullscreenchange", changed);
